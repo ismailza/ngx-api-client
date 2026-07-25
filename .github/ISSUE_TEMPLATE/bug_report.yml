@@ -1,0 +1,127 @@
+name: Bug Report
+description: Report something in @ismailza/ngx-api-client that does not work as documented.
+title: 'fix: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a report. Please fill in as much as you can —
+        a minimal reproduction is by far the most useful thing you can provide.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched [existing issues](https://github.com/ismailza/ngx-api-client/issues?q=is%3Aissue) and this has not been reported.
+          required: true
+        - label: I am using a [supported Angular version](https://github.com/ismailza/ngx-api-client#compatibility) (>= 17).
+          required: true
+        - label: I reproduced this on the latest release of the library.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of the library misbehaves?
+      multiple: true
+      options:
+        - ApiService (request methods, options)
+        - provideApi / configuration
+        - URL building and versioning
+        - Error interceptor / problem+json normalisation
+        - Success interceptor / success messages
+        - Retry and backoff
+        - Loading state (ApiLoadingService)
+        - Types and models
+        - Build, packaging, or SSR
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the actual behaviour, including any error message or stack trace.
+      placeholder: |
+        A request to `/orders` with `versioning: 'header'` still puts `/v1` in the path…
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: |
+        Numbered steps, plus a link to a minimal repository or StackBlitz if you have one.
+      placeholder: |
+        1. Configure `provideApi({ baseUrl: '…', versioning: 'header' })`
+        2. Call `api.get('/orders')`
+        3. Inspect the outgoing request
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: API configuration
+      description: The `ApiConfiguration` you pass to `provideApi()`. Redact secrets and internal URLs.
+      render: ts
+      placeholder: |
+        provideApi({
+          baseUrl: 'https://api.example.com',
+          prefix: 'api',
+          version: 1,
+          versioning: { strategy: 'header' },
+          retry: { maxRetries: 3, initialDelay: 1000 },
+        })
+    validations:
+      required: false
+
+  - type: input
+    id: lib-version
+    attributes:
+      label: '@ismailza/ngx-api-client version'
+      placeholder: 0.2.0
+    validations:
+      required: true
+
+  - type: input
+    id: angular-version
+    attributes:
+      label: Angular version
+      placeholder: 21.2.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Anything else about your setup that could matter.
+      value: |
+        - Node:
+        - Package manager:
+        - Browser / SSR:
+        - OS:
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Workarounds you found, related issues, or anything else worth knowing.
+    validations:
+      required: false

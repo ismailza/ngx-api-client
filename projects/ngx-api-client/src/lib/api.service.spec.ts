@@ -6,13 +6,17 @@ import { ApiService } from './api.service';
 import {
   API_BASE_URL,
   API_DEFAULT_SHOW_LOADER,
+  API_PREFIX,
   API_REQUEST_OPTIONS,
   API_VERSION,
+  API_VERSIONING,
   SKIP_ERROR_HANDLER,
   SKIP_LOADER,
   SKIP_RETRY,
 } from './api.tokens';
 import { PaginatedResponse } from './models';
+import { API_VERSIONING_DEFAULTS, ApiVersioningConfig } from './models/api-versioning.model';
+import { provideApi } from './provide-api';
 
 const BASE_URL = 'https://api.example.com';
 
@@ -69,6 +73,261 @@ describe('ApiService', () => {
       api.get('/resources', { version: 1 }).subscribe();
 
       httpMock.expectOne(`${BASE_URL}/api/v1/resources`).flush({});
+    });
+
+    it('trims a trailing slash from the base URL', () => {
+      configure([{ provide: API_BASE_URL, useValue: `${BASE_URL}/` }]);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/v1/resources`).flush({});
+    });
+  });
+
+  describe('path prefix', () => {
+    it('uses the globally configured prefix', () => {
+      configure([{ provide: API_PREFIX, useValue: 'gateway' }]);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/gateway/v1/resources`).flush({});
+    });
+
+    it('omits the segment when the prefix is empty', () => {
+      configure([{ provide: API_PREFIX, useValue: '' }]);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/v1/resources`).flush({});
+    });
+
+    it('strips surrounding slashes from a multi-segment prefix', () => {
+      configure([{ provide: API_PREFIX, useValue: '/public/api/' }]);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/public/api/v1/resources`).flush({});
+    });
+
+    it('lets a request override the prefix', () => {
+      api.get('/resources', { prefix: 'internal' }).subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/internal/v1/resources`).flush({});
+    });
+
+    it('lets a request drop the prefix', () => {
+      api.get('/health', { prefix: false, version: false }).subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/health`).flush({});
+    });
+  });
+
+  describe('versioning strategies', () => {
+    const withVersioning = (versioning: ApiVersioningConfig | null, version: number | string = 1) =>
+      configure([
+        {
+          provide: API_VERSIONING,
+          useValue: versioning && { ...API_VERSIONING_DEFAULTS, ...versioning },
+        },
+        { provide: API_VERSION, useValue: version },
+      ]);
+
+    it('drops the version segment when versioning is disabled', () => {
+      withVersioning(null);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/resources`).flush({});
+    });
+
+    it('sends no version param or header when disabled', () => {
+      withVersioning(null);
+
+      api.get('/resources').subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.params.keys()).toEqual([]);
+      expect(req.request.headers.keys()).toEqual([]);
+      req.flush({});
+    });
+
+    it('honours a custom url version prefix', () => {
+      withVersioning({ strategy: 'url', prefix: 'version-' }, 2);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/version-2/resources`).flush({});
+    });
+
+    it('supports a bare version segment', () => {
+      withVersioning({ strategy: 'url', prefix: '' }, 2);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/2/resources`).flush({});
+    });
+
+    it('sends the version as a query parameter', () => {
+      withVersioning({ strategy: 'query-param' }, 3);
+
+      api.get('/resources').subscribe();
+
+      const req = httpMock.expectOne((r) => r.url === `${BASE_URL}/api/resources`);
+      expect(req.request.params.get('v')).toBe('3');
+      req.flush({});
+    });
+
+    it('honours a custom query parameter name and keeps caller params', () => {
+      withVersioning({ strategy: 'query-param', parameterName: 'api-version' }, 3);
+
+      api.get('/resources', { params: { active: true } }).subscribe();
+
+      const req = httpMock.expectOne((r) => r.url === `${BASE_URL}/api/resources`);
+      expect(req.request.params.get('api-version')).toBe('3');
+      expect(req.request.params.get('active')).toBe('true');
+      req.flush({});
+    });
+
+    it('does not overwrite a version param the caller set explicitly', () => {
+      withVersioning({ strategy: 'query-param' }, 3);
+
+      api.get('/resources', { params: { v: 9 } }).subscribe();
+
+      const req = httpMock.expectOne((r) => r.url === `${BASE_URL}/api/resources`);
+      expect(req.request.params.getAll('v')).toEqual(['9']);
+      req.flush({});
+    });
+
+    it('sends the version as a header', () => {
+      withVersioning({ strategy: 'header' }, 2);
+
+      api.get('/resources').subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.headers.get('X-API-Version')).toBe('2');
+      req.flush({});
+    });
+
+    it('honours a custom header name and keeps caller headers', () => {
+      withVersioning({ strategy: 'header', headerName: 'Api-Version' }, 2);
+
+      api.get('/resources', { headers: { 'X-Custom': 'value' } }).subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.headers.get('Api-Version')).toBe('2');
+      expect(req.request.headers.get('X-Custom')).toBe('value');
+      req.flush({});
+    });
+
+    it('sends the version as an Accept media type', () => {
+      withVersioning({ strategy: 'media-type' }, 2);
+
+      api.get('/resources').subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.headers.get('Accept')).toBe('application/vnd.api.v2+json');
+      req.flush({});
+    });
+
+    it('renders every placeholder of a custom media type template', () => {
+      withVersioning(
+        { strategy: 'media-type', mediaType: 'application/v{version}+json;v={version}' },
+        5,
+      );
+
+      api.get('/resources').subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.headers.get('Accept')).toBe('application/v5+json;v=5');
+      req.flush({});
+    });
+
+    it('does not overwrite a header the caller set explicitly', () => {
+      withVersioning({ strategy: 'header' }, 2);
+
+      api.get('/resources', { headers: { 'X-API-Version': 'pinned' } }).subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.headers.get('X-API-Version')).toBe('pinned');
+      req.flush({});
+    });
+
+    it('accepts a non-numeric version', () => {
+      withVersioning({ strategy: 'url' }, '2024-01-01');
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/v2024-01-01/resources`).flush({});
+    });
+
+    it('lets a request opt out of versioning entirely', () => {
+      withVersioning({ strategy: 'query-param' }, 3);
+
+      api.get('/health', { version: false }).subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/health`);
+      expect(req.request.params.keys()).toEqual([]);
+      req.flush({});
+    });
+
+    it('ignores a per-request version when versioning is disabled globally', () => {
+      withVersioning(null);
+
+      api.get('/resources', { version: 2 }).subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.params.keys()).toEqual([]);
+      req.flush({});
+    });
+
+    it('encodes a version that would otherwise escape its url segment', () => {
+      withVersioning({ strategy: 'url' });
+
+      api.get('/resources', { version: '../admin' }).subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/v..%2Fadmin/resources`).flush({});
+    });
+  });
+
+  describe('configured through provideApi', () => {
+    it('applies the documented defaults', () => {
+      configure([provideApi({ baseUrl: BASE_URL })]);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/v1/resources`).flush({});
+    });
+
+    it('keeps the defaults when optional config fields are undefined', () => {
+      // The shape an app gets from `environment.ts` when the fields are unset.
+      configure([
+        provideApi({
+          baseUrl: BASE_URL,
+          prefix: undefined,
+          version: undefined,
+          versioning: undefined,
+        }),
+      ]);
+
+      api.get('/resources').subscribe();
+
+      httpMock.expectOne(`${BASE_URL}/api/v1/resources`).flush({});
+    });
+
+    it('sends a header version even when the header name is left undefined', () => {
+      configure([
+        provideApi({
+          baseUrl: BASE_URL,
+          version: 2,
+          versioning: { strategy: 'header', headerName: undefined },
+        }),
+      ]);
+
+      api.get('/resources').subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/resources`);
+      expect(req.request.headers.get('X-API-Version')).toBe('2');
+      req.flush({});
     });
   });
 

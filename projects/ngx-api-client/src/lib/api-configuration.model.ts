@@ -1,4 +1,5 @@
 import { RetryConfig } from './models/retry-config.model';
+import { ApiVersioningConfig, ApiVersioningStrategy } from './models/api-versioning.model';
 import { ApiDefaultSuccessMessages } from './models/success-message.model';
 
 /**
@@ -19,20 +20,51 @@ import { ApiDefaultSuccessMessages } from './models/success-message.model';
  */
 export interface ApiConfiguration {
   /**
-   * Base URL of the backend API (without trailing slash).
+   * Base URL of the backend API (a trailing slash is trimmed).
    *
    * @example `'https://api.example.com'`
    */
   baseUrl: string;
 
   /**
-   * Default API version used for URL-prefix versioning.
-   * Produces URLs like `/api/v1/...`.
+   * Static path segment inserted between the base URL and the endpoint,
+   * whatever the versioning strategy: `{baseUrl}/{prefix}/...`.
+   *
+   * Set to `''` or `false` when the API is served from the root.
+   * Can be overridden per-request via `ApiRequestOptions.prefix`.
+   *
+   * @default 'api'
+   */
+  prefix?: string | false;
+
+  /**
+   * Default API version sent with every request, carried according to
+   * `versioning`. Strings are allowed for date- or label-based schemes
+   * (e.g. `'2024-01-01'`, `'beta'`).
    *
    * Can be overridden per-request via `ApiRequestOptions.version`.
    * @default 1
    */
-  version?: number;
+  version?: number | string;
+
+  /**
+   * How the version is carried on each request.
+   *
+   * - a strategy name — shorthand for `{ strategy }` with default naming
+   * - an `ApiVersioningConfig` — full control over parameter/header names
+   * - `false` — versioning disabled; URLs are `{baseUrl}/{prefix}{endpoint}`
+   *   and no version param or header is sent
+   *
+   * @default `{ strategy: 'url', prefix: 'v' }` → `/api/v1/...`
+   *
+   * @example
+   * ```ts
+   * versioning: 'query-param'                             // /api/orders?v=1
+   * versioning: { strategy: 'header' }                    // X-API-Version: 1
+   * versioning: false                                     // /api/orders
+   * ```
+   */
+  versioning?: ApiVersioningStrategy | ApiVersioningConfig | false;
 
   /**
    * Global retry configuration for transient failures.
@@ -66,6 +98,7 @@ export interface ApiConfiguration {
 
 /** Internal defaults applied when the consumer omits values. */
 export const API_CONFIGURATION_DEFAULTS = {
+  prefix: 'api',
   version: 1,
   defaultShowLoader: true,
   defaultShowSuccessMessage: true,

@@ -11,6 +11,9 @@ import { RetryConfig } from './retry-config.model';
  * // Override API version for this call only
  * this.api.get<LegacyOrder>('/orders', { version: 1 });
  *
+ * // Call an unversioned endpoint outside the API prefix
+ * this.api.get<Health>('/health', { version: false, prefix: false });
+ *
  * // Disable retry and global error handler for a fire-and-forget call
  * this.api.post('/analytics/event', payload, {
  *   retry: false,
@@ -24,8 +27,20 @@ import { RetryConfig } from './retry-config.model';
  * ```
  */
 export interface ApiRequestOptions {
-  /** Override the global API version for this request. */
-  version?: number;
+  /**
+   * Override the global API version for this request.
+   * Pass `false` to send this one request unversioned (e.g. `/health`).
+   *
+   * Ignored when versioning is disabled globally (`versioning: false`), since
+   * there is then no strategy to carry the version.
+   */
+  version?: number | string | false;
+
+  /**
+   * Override the global path prefix for this request.
+   * Pass `''` or `false` to hit an endpoint served from the root.
+   */
+  prefix?: string | false;
 
   /**
    * Configure retry behavior for this request.

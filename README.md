@@ -8,7 +8,7 @@ render, which requests are safe to retry, or how a loading indicator knows
 anything is in flight. Most apps end up re-solving all four in an ad-hoc
 `ApiService`. This is that service, extracted and made configurable.
 
-- **Versioned URLs** — `{baseUrl}/api/v{version}{endpoint}`, overridable per request
+- **Configurable versioning** — URL segment, query parameter, header or media type; or turned off entirely — overridable per request
 - **RFC 9457 `problem+json` errors** normalised into one `ApiError` shape, whatever the backend returns
 - **Retry with exponential backoff**, jitter and `Retry-After`, skipping non-idempotent methods
 - **Per-request options** carried to interceptors through `HttpContext`, not globals
@@ -37,7 +37,9 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideApi({
       baseUrl: 'https://api.example.com',
+      prefix: 'api', // {baseUrl}/api/...  — '' or false to omit
       version: 1,
+      versioning: 'url', // 'query-param' | 'header' | 'media-type' | false
       retry: { maxRetries: 3, initialDelay: 1000 },
     }),
     provideHttpClient(
@@ -77,6 +79,49 @@ export class OrderService {
 `GET /orders` with `version: 1` resolves to
 `https://api.example.com/api/v1/orders?page=0&size=20`.
 
+## URL shape and versioning
+
+A URL is `{baseUrl}` + an optional `{prefix}` segment + an optional version
+segment + `{endpoint}`. Both middle pieces are yours to configure — or remove.
+
+```ts
+provideApi({ baseUrl: 'https://api.example.com', prefix: 'api', version: 2 });
+// → https://api.example.com/api/v2/orders
+```
+
+`prefix` is a static path segment (default `'api'`); set it to `''` or `false`
+when the API is served from the root. `versioning` picks how the version
+travels:
+
+| `versioning`                                        | Result for `GET /orders`              |
+| --------------------------------------------------- | ------------------------------------- |
+| `'url'` _(default)_                                 | `/api/v2/orders`                      |
+| `{ strategy: 'url', prefix: '' }`                   | `/api/2/orders`                       |
+| `'query-param'`                                     | `/api/orders?v=2`                     |
+| `{ strategy: 'query-param', parameterName: 'ver' }` | `/api/orders?ver=2`                   |
+| `'header'`                                          | `/api/orders` + `X-API-Version: 2`    |
+| `{ strategy: 'header', headerName: 'Api-Version' }` | `/api/orders` + `Api-Version: 2`      |
+| `'media-type'`                                      | `Accept: application/vnd.api.v2+json` |
+| `false`                                             | `/api/orders`, no version sent        |
+
+For `'media-type'`, `mediaType` is a template whose `{version}` placeholders are
+substituted — default `'application/vnd.api.v{version}+json'`.
+
+`version` accepts strings too, for date- or label-based schemes:
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  version: '2024-01-01',
+  versioning: { strategy: 'header', headerName: 'Api-Version' },
+});
+```
+
+A header or query parameter the caller sets explicitly is never overwritten by
+the versioning strategy, and a version placed in the URL is percent-encoded.
+With `versioning: false` there is no strategy to carry a version, so a
+per-request `version` is ignored.
+
 ### Per-request options
 
 Every method takes an optional `ApiRequestOptions`:
@@ -84,6 +129,9 @@ Every method takes an optional `ApiRequestOptions`:
 ```ts
 // Pin this call to an older API version
 this.api.get<LegacyOrder>('/orders', { version: 1 });
+
+// Hit an unversioned endpoint outside the API prefix: /health
+this.api.get<Health>('/health', { prefix: false, version: false });
 
 // Fire-and-forget: no retry, no global error handler, no loading indicator
 this.api.post('/analytics/event', payload, {
@@ -182,14 +230,20 @@ Exclude a request with `showLoader: false`.
 
 ## Configuration
 
-| Option                      | Default                                                | Description                          |
-| --------------------------- | ------------------------------------------------------ | ------------------------------------ |
-| `baseUrl`                   | _required_                                             | API root, no trailing slash          |
-| `version`                   | `1`                                                    | URL-prefix version                   |
-| `retry`                     | `{ maxRetries: 3, initialDelay: 1000, multiplier: 2 }` | `false` disables retry globally      |
-| `defaultShowLoader`         | `true`                                                 | Whether requests track loading state |
-| `defaultShowSuccessMessage` | `true`                                                 | Success message on mutating methods  |
-| `defaultSuccessMessages`    | per-method English defaults                            | Merged over the built-ins            |
+| Option                      | Default                                                | Description                                         |
+| --------------------------- | ------------------------------------------------------ | --------------------------------------------------- |
+| `baseUrl`                   | _required_                                             | API root; a trailing slash is trimmed               |
+| `prefix`                    | `'api'`                                                | Static path segment; `''`/`false` omits it          |
+| `version`                   | `1`                                                    | Version value, `number` or `string`                 |
+| `versioning`                | `'url'`                                                | Strategy name, config object, or `false` to disable |
+| `retry`                     | `{ maxRetries: 3, initialDelay: 1000, multiplier: 2 }` | `false` disables retry globally                     |
+| `defaultShowLoader`         | `true`                                                 | Whether requests track loading state                |
+| `defaultShowSuccessMessage` | `true`                                                 | Success message on mutating methods                 |
+| `defaultSuccessMessages`    | per-method English defaults                            | Merged over the built-ins                           |
+
+Every option falls back to its default when omitted _or_ when passed explicitly
+as `undefined`, so building the config from optional sources
+(`prefix: environment.apiPrefix`) is safe.
 
 Success messages are plain strings so the package carries no i18n dependency —
 pass translated values into `defaultSuccessMessages`, or handle wording in your
@@ -205,7 +259,7 @@ matrix currently covers.
 
 ```bash
 npm install
-npm test     # 102 specs, vitest
+npm test
 npm run build
 ```
 

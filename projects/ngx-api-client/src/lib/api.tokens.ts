@@ -2,6 +2,7 @@ import { HttpContextToken } from '@angular/common/http';
 import { InjectionToken } from '@angular/core';
 
 import { ApiRequestOptions } from './models/api-request-options.model';
+import { API_VERSIONING_DEFAULTS, ResolvedApiVersioning } from './models/api-versioning.model';
 import { RetryConfig } from './models/retry-config.model';
 import { ApiDefaultSuccessMessages } from './models/success-message.model';
 
@@ -12,12 +13,32 @@ import { ApiDefaultSuccessMessages } from './models/success-message.model';
 export const API_BASE_URL = new InjectionToken<string>('API_BASE_URL');
 
 /**
- * Default API version number for URL-prefix versioning.
+ * Static path segment placed between the base URL and the endpoint,
+ * without surrounding slashes (e.g. `'api'`). Empty string means none.
  * Provided automatically by `provideApi()`.
  */
-export const API_VERSION = new InjectionToken<number>('API_VERSION', {
+export const API_PREFIX = new InjectionToken<string>('API_PREFIX', {
+  providedIn: 'root',
+  factory: () => 'api',
+});
+
+/**
+ * Default API version sent with every request.
+ * Provided automatically by `provideApi()`.
+ */
+export const API_VERSION = new InjectionToken<number | string>('API_VERSION', {
   providedIn: 'root',
   factory: () => 1,
+});
+
+/**
+ * How the version is carried on each request, with every default resolved.
+ * `null` means versioning is disabled globally.
+ * Provided automatically by `provideApi()`.
+ */
+export const API_VERSIONING = new InjectionToken<ResolvedApiVersioning | null>('API_VERSIONING', {
+  providedIn: 'root',
+  factory: () => API_VERSIONING_DEFAULTS,
 });
 
 /**

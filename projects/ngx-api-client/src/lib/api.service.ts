@@ -1,31 +1,44 @@
-import { HttpClient, HttpContext, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { defer, finalize, Observable } from 'rxjs';
 import { ApiLoadingService } from './api-loading.service';
 import {
   API_BASE_URL,
   API_DEFAULT_SHOW_LOADER,
+  API_PREFIX,
   API_REQUEST_OPTIONS,
   API_VERSION,
+  API_VERSIONING,
   SKIP_ERROR_HANDLER,
   SKIP_LOADER,
   SKIP_RETRY,
 } from './api.tokens';
 import { PaginatedResponse } from './models';
 import { ApiRequestOptions } from './models/api-request-options.model';
+import { ResolvedApiVersioning } from './models/api-versioning.model';
+import { normalizePrefix, trimTrailingSlash } from './url.util';
+
+/** The versioning settings and the version value that apply to one request. */
+interface RequestVersioning {
+  config: ResolvedApiVersioning;
+  version: string;
+}
 
 /**
  * Centralised, generic HTTP client for all API calls.
  *
- * Builds versioned URLs from the configured `baseUrl` and `version`,
- * attaches per-request options to the `HttpContext` for interceptors,
- * and tracks loading state.
+ * Builds URLs from the configured `baseUrl` and `prefix`, carries the API
+ * version using the configured strategy (URL segment, query parameter, header
+ * or media type — or not at all), attaches per-request options to the
+ * `HttpContext` for interceptors, and tracks loading state.
  */
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = inject(API_BASE_URL);
+  private readonly prefix = inject(API_PREFIX);
   private readonly version = inject(API_VERSION);
+  private readonly versioning = inject(API_VERSIONING);
   private readonly defaultShowLoader = inject(API_DEFAULT_SHOW_LOADER);
   private readonly loadingService = inject(ApiLoadingService);
 
@@ -136,7 +149,8 @@ export class ApiService {
     const showLoader = options?.showLoader ?? this.defaultShowLoader;
 
     return defer(() => {
-      const url = this.buildUrl(endpoint, options?.version);
+      const versioning = this.resolveVersioning(options);
+      const url = this.buildUrl(endpoint, options, versioning);
       const context = this.buildContext(options);
 
       if (showLoader) {
@@ -145,8 +159,8 @@ export class ApiService {
 
       return this.http.request<T>(method, url, {
         body,
-        params: this.toHttpParams(options?.params),
-        headers: options?.headers,
+        params: this.buildParams(options, versioning),
+        headers: this.buildHeaders(options, versioning),
         context,
       });
     }).pipe(
@@ -159,19 +173,117 @@ export class ApiService {
   }
 
   /**
-   * Builds the full URL: `{baseUrl}/api/v{version}{endpoint}`
+   * Resolves the versioning settings and version value for one request.
+   *
+   * When versioning is disabled globally there is no strategy to carry a
+   * version, so `ApiRequestOptions.version` is ignored rather than guessed at.
+   *
+   * @param options Request options that may override the global version.
+   * @returns `null` when versioning is disabled globally or for this request,
+   * otherwise the resolved config paired with the version as a string.
+   */
+  private resolveVersioning(options?: ApiRequestOptions): RequestVersioning | null {
+    if (!this.versioning) return null;
+
+    const version = options?.version ?? this.version;
+    if (version === false || version === null || version === undefined || version === '') {
+      return null;
+    }
+
+    return { config: this.versioning, version: String(version) };
+  }
+
+  /**
+   * Builds the full URL: `{baseUrl}/{prefix}/{v}{version}{endpoint}`, where the
+   * prefix and the version segment are each omitted when not configured.
    *
    * @param endpoint API endpoint path (e.g. `'/resource'`).
-   * @param versionOverride Optional API version to override the default.
+   * @param options Request options that may override the prefix.
+   * @param versioning Resolved versioning for this request, or `null` if disabled.
    * @returns The full URL for the API request.
    *
    * @example
-   * buildUrl('/resource', 2) → 'https://api.example.com/api/v2/resource'
+   * // prefix 'api', 'url' strategy, version 2
+   * buildUrl('/resource', …) → 'https://api.example.com/api/v2/resource'
    */
-  private buildUrl(endpoint: string, versionOverride?: number): string {
-    const v = versionOverride ?? this.version;
+  private buildUrl(
+    endpoint: string,
+    options?: ApiRequestOptions,
+    versioning?: RequestVersioning | null,
+  ): string {
+    const segments: string[] = [];
+
+    const prefix = normalizePrefix(options?.prefix ?? this.prefix);
+    if (prefix) {
+      segments.push(prefix);
+    }
+
+    if (versioning?.config.strategy === 'url') {
+      // The version can come from a route param or user input, so encode it:
+      // a raw `/` or `..` would otherwise escape its own path segment.
+      segments.push(`${versioning.config.prefix}${encodeURIComponent(versioning.version)}`);
+    }
+
     const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-    return `${this.baseUrl}/api/v${v}${normalizedEndpoint}`;
+    const path = segments.length ? `/${segments.join('/')}` : '';
+
+    return `${trimTrailingSlash(this.baseUrl)}${path}${normalizedEndpoint}`;
+  }
+
+  /**
+   * Builds the query parameters, appending the version under the configured
+   * parameter name when the `'query-param'` strategy is active. A parameter the
+   * caller set explicitly is never overwritten.
+   *
+   * @param options Request options that may carry query parameters.
+   * @param versioning Resolved versioning for this request, or `null` if disabled.
+   * @returns An `HttpParams` instance, or `undefined` when there is nothing to send.
+   */
+  private buildParams(
+    options?: ApiRequestOptions,
+    versioning?: RequestVersioning | null,
+  ): HttpParams | undefined {
+    const params = this.toHttpParams(options?.params);
+
+    if (versioning?.config.strategy !== 'query-param') return params;
+
+    const name = versioning.config.parameterName;
+    if (params?.has(name)) return params;
+
+    return (params ?? new HttpParams()).set(name, versioning.version);
+  }
+
+  /**
+   * Builds the request headers, adding the version header when the `'header'`
+   * or `'media-type'` strategy is active. A header the caller set explicitly is
+   * never overwritten.
+   *
+   * @param options Request options that may carry headers.
+   * @param versioning Resolved versioning for this request, or `null` if disabled.
+   * @returns The headers to send, or `undefined` when there are none.
+   */
+  private buildHeaders(
+    options?: ApiRequestOptions,
+    versioning?: RequestVersioning | null,
+  ): HttpHeaders | Record<string, string | string[]> | undefined {
+    const strategy = versioning?.config.strategy;
+
+    if (!versioning || (strategy !== 'header' && strategy !== 'media-type')) {
+      return options?.headers;
+    }
+
+    const name = strategy === 'header' ? versioning.config.headerName : 'Accept';
+    const value =
+      strategy === 'header'
+        ? versioning.version
+        : versioning.config.mediaType.replace(/\{version\}/g, versioning.version);
+
+    const headers =
+      options?.headers instanceof HttpHeaders
+        ? options.headers
+        : new HttpHeaders(options?.headers ?? {});
+
+    return headers.has(name) ? headers : headers.set(name, value);
   }
 
   /**

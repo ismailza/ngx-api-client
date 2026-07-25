@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://github.com/ismailza/ngx-api-client#readme
+    about: Setup, URL and versioning rules, error handling, retry, and the full configuration reference.
+  - name: Security vulnerability
+    url: https://github.com/ismailza/ngx-api-client/security/advisories/new
+    about: Please report security issues privately rather than in a public issue.

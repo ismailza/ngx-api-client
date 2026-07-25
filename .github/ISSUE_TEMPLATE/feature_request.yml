@@ -1,0 +1,102 @@
+name: Feature Request
+description: Suggest a new capability or an improvement to an existing one.
+title: 'feat: '
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposals that describe a concrete use case — and what you currently have to write
+        without them — are much easier to evaluate. Please keep the scope to one idea per issue.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight
+      options:
+        - label: I searched [existing issues](https://github.com/ismailza/ngx-api-client/issues?q=is%3Aissue) and this has not been requested.
+          required: true
+        - label: I checked the [README](https://github.com/ismailza/ngx-api-client#readme) and this is not already supported.
+          required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Affected area
+      description: Which part of the library would this touch?
+      multiple: true
+      options:
+        - ApiService (request methods, options)
+        - provideApi / configuration
+        - URL building and versioning
+        - Error interceptor / problem+json normalisation
+        - Success interceptor / success messages
+        - Retry and backoff
+        - Loading state (ApiLoadingService)
+        - Types and models
+        - Build, packaging, or SSR
+        - Documentation
+        - New area
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to do, and where does the library get in the way today?
+      placeholder: |
+        I need to attach a correlation ID to every request, and the only hook I have is
+        writing my own interceptor that duplicates the URL-building logic…
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe the API you would like. Sketching the config or call site helps a lot.
+      render: ts
+      placeholder: |
+        provideApi({
+          baseUrl: 'https://api.example.com',
+          requestDecorator: (req) => req.clone({ setHeaders: { 'X-Correlation-Id': uuid() } }),
+        })
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you tried, or other API shapes you weighed and why you dropped them.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Would this be a breaking change?
+      options:
+        - 'No — purely additive'
+        - 'Maybe — depends on the design'
+        - 'Yes — changes existing behaviour or types'
+        - 'Not sure'
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to open a pull request for this.
+          required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Prior art in other libraries, relevant specs (e.g. RFC 9457), or links.
+    validations:
+      required: false

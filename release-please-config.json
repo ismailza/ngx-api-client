@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "include-component-in-tag": false,
+  "separate-pull-requests": true,
+  "bump-minor-pre-major": true,
+  "packages": {
+    "projects/ngx-api-client": {
+      "release-type": "node",
+      "package-name": "@ismailza/ngx-api-client",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

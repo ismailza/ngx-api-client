@@ -1,0 +1,108 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  # Manual publish of whatever is currently on main, e.g. to recover from a
+  # half-finished release run.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  # Maintains a release PR from conventional commits: bumps the version in
+  # projects/ngx-api-client/package.json and writes the changelog. Merging that
+  # PR tags the commit and publishes a GitHub Release.
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.releases_created }}
+    steps:
+      - uses: googleapis/release-please-action@v5
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # Builds the tarball once so both registries receive identical bytes.
+  build:
+    name: Build
+    needs: release-please
+    if: needs.release-please.outputs.released == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # ng-packagr copies README.md but not these.
+      - name: Include LICENSE and CHANGELOG in the package
+        run: |
+          cp LICENSE dist/ngx-api-client/LICENSE
+          cp projects/ngx-api-client/CHANGELOG.md dist/ngx-api-client/CHANGELOG.md
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package
+          path: dist/ngx-api-client
+          retention-days: 7
+
+  publish-npm:
+    name: Publish to npmjs
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: package
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: npm publish ./package --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-gpr:
+    name: Publish to GitHub Packages
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: package
+          path: package
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: "@ismailza"
+
+      - run: npm publish ./package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

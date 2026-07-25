@@ -6,5 +6,31 @@
   },
   "newProjectRoot": "projects",
   "projects": {
+    "ngx-api-client": {
+      "projectType": "library",
+      "root": "projects/ngx-api-client",
+      "sourceRoot": "projects/ngx-api-client/src",
+      "prefix": "api",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr",
+          "configurations": {
+            "production": {
+              "tsConfig": "projects/ngx-api-client/tsconfig.lib.prod.json"
+            },
+            "development": {
+              "tsConfig": "projects/ngx-api-client/tsconfig.lib.json"
+            }
+          },
+          "defaultConfiguration": "production"
+        },
+        "test": {
+          "builder": "@angular/build:unit-test",
+          "options": {
+            "tsConfig": "projects/ngx-api-client/tsconfig.spec.json"
+          }
+        }
+      }
+    }
   }
 }

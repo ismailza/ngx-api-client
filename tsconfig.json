@@ -7,6 +7,9 @@
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,
+    "paths": {
+      "ngx-api-client": ["./dist/ngx-api-client"]
+    },
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "isolatedModules": true,
@@ -21,5 +24,13 @@
     "strictInputAccessModifiers": true,
     "strictTemplates": true
   },
-  "files": []
+  "files": [],
+  "references": [
+    {
+      "path": "./projects/ngx-api-client/tsconfig.lib.json"
+    },
+    {
+      "path": "./projects/ngx-api-client/tsconfig.spec.json"
+    }
+  ]
 }

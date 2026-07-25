@@ -1,0 +1,36 @@
+{
+  "name": "ngx-api-client",
+  "version": "0.0.1",
+  "description": "A typed, interceptor-driven HTTP layer for Angular: versioned URLs, RFC 9457 problem+json error normalisation, retry with backoff, and pluggable error/success handlers.",
+  "keywords": [
+    "angular",
+    "http",
+    "httpclient",
+    "interceptor",
+    "rfc9457",
+    "rfc7807",
+    "problem-details",
+    "retry",
+    "backoff",
+    "pagination"
+  ],
+  "license": "MIT",
+  "author": "Ismail ZAHIR",
+  "homepage": "https://github.com/ismailza/ngx-api-client#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ismailza/ngx-api-client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ismailza/ngx-api-client/issues"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0",
+    "rxjs": "^7.4.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}

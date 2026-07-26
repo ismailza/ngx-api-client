@@ -1,5 +1,10 @@
 # ngx-api-client
 
+[![npm](https://img.shields.io/npm/v/@ismailza/ngx-api-client.svg)](https://www.npmjs.com/package/@ismailza/ngx-api-client)
+[![CI](https://github.com/ismailza/ngx-api-client/actions/workflows/ci.yml/badge.svg)](https://github.com/ismailza/ngx-api-client/actions/workflows/ci.yml)
+[![Release](https://github.com/ismailza/ngx-api-client/actions/workflows/release.yml/badge.svg)](https://github.com/ismailza/ngx-api-client/actions/workflows/release.yml)
+[![license](https://img.shields.io/npm/l/@ismailza/ngx-api-client.svg)](./LICENSE)
+
 A typed, interceptor-driven HTTP layer for Angular.
 
 `HttpClient` gives you a request. It doesn't give you a _policy_ — where the base

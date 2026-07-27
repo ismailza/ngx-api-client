@@ -56,7 +56,7 @@ function normalizeError(response: HttpErrorResponse): ApiError {
     };
   }
 
-  const body = response.error;
+  const body: unknown = response.error;
 
   // Backend returned a structured ProblemDetail body
   if (isProblemDetail(body)) {

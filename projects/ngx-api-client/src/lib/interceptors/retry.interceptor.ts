@@ -51,7 +51,7 @@ export const retryInterceptor: HttpInterceptorFn = (req, next) => {
   return next(req).pipe(
     retry({
       count: config.maxRetries,
-      delay: (error, retryIndex) =>
+      delay: (error: unknown, retryIndex: number) =>
         shouldRetry(error, config)
           ? computeDelay$(error, retryIndex, config)
           : throwError(() => error),
@@ -63,7 +63,7 @@ export const retryInterceptor: HttpInterceptorFn = (req, next) => {
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function shouldRetry(error: unknown, config: Required<RetryConfig>): boolean {
+function shouldRetry(error: unknown, config: Required<RetryConfig>): error is HttpErrorResponse {
   if (error instanceof HttpErrorResponse) {
     return config.retryableStatuses.includes(error.status);
   }

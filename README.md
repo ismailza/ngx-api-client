@@ -262,14 +262,16 @@ matrix currently covers.
 
 ## Contributing
 
-```bash
-npm install
-npm test
-npm run build
-```
+Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) before opening an issue or pull request.
 
-Issues and pull requests are welcome.
+## Code of Conduct
+
+Please read our [Code of Conduct](CODE_OF_CONDUCT.md) to help us maintain a welcoming and inclusive community.
 
 ## License
 
 [MIT](./LICENSE) © Ismail ZAHIR
+
+## Support the Project
+
+If you find this library useful, consider giving it a ⭐ on GitHub. It helps others discover the project and motivates future development.

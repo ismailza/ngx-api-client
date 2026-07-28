@@ -4,36 +4,46 @@ import { themes as prismThemes } from 'prism-react-renderer';
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
+const organizationName = 'ismailza';
+const projectName = 'ngx-api-client';
+const packageName = '@ismailza/ngx-api-client';
+const repoUrl = `https://github.com/${organizationName}/${projectName}`;
+
 const config: Config = {
-  title: 'My Site',
-  tagline: 'Dinosaurs are cool',
-  favicon: 'img/favicon.ico',
+  title: 'ngx-api-client',
+  tagline: 'A typed, interceptor-driven HTTP layer for Angular',
+  favicon: 'img/favicon.svg',
 
   // Future flags, see https://docusaurus.io/docs/api/docusaurus-config#future
   future: {
     v4: true, // Improve compatibility with the upcoming Docusaurus v4
   },
 
-  // Set the production url of your site here
-  url: 'https://your-docusaurus-site.example.com',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  url: `https://${organizationName}.github.io`,
+  baseUrl: `/${projectName}/`,
 
-  // GitHub pages deployment config.
-  // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'facebook', // Usually your GitHub org/user name.
-  projectName: 'docusaurus', // Usually your repo name.
+  organizationName,
+  projectName,
+  trailingSlash: false,
+
+  markdown: {
+    mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'throw',
+      onBrokenMarkdownImages: 'throw',
+    },
+  },
 
   onBrokenLinks: 'throw',
+  onBrokenAnchors: 'throw',
 
-  // Even if you don't use internationalization, you can use this field to set
-  // useful metadata like html lang. For example, if your site is Chinese, you
-  // may want to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
   },
+
+  // Required by `markdown.mermaid`: renders ```mermaid fences as diagrams.
+  themes: ['@docusaurus/theme-mermaid'],
 
   presets: [
     [
@@ -41,55 +51,60 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
+          editUrl: `${repoUrl}/tree/main/website/`,
+          showLastUpdateTime: true,
         },
-        blog: {
-          showReadingTime: true,
-          feedOptions: {
-            type: ['rss', 'atom'],
-            xslt: true,
-          },
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/',
-          // Useful options to enforce blogging best practices
-          onInlineTags: 'warn',
-          onInlineAuthors: 'warn',
-          onUntruncatedBlogPosts: 'warn',
-        },
+        blog: false,
         theme: {
           customCss: './src/css/custom.css',
+        },
+        sitemap: {
+          lastmod: 'date',
+          changefreq: 'weekly',
         },
       } satisfies Preset.Options,
     ],
   ],
 
   themeConfig: {
-    // Replace with your project's social card
-    image: 'img/docusaurus-social-card.jpg',
     colorMode: {
       respectPrefersColorScheme: true,
     },
+    mermaid: {
+      theme: { light: 'neutral', dark: 'dark' },
+    },
+    metadata: [
+      {
+        name: 'keywords',
+        content:
+          'angular, httpclient, http interceptor, rfc 9457, problem details, retry, backoff, api client',
+      },
+    ],
     navbar: {
-      title: 'My Site',
+      title: 'ngx-api-client',
       logo: {
-        alt: 'My Site Logo',
+        alt: 'ngx-api-client logo',
         src: 'img/logo.svg',
       },
       items: [
         {
           type: 'docSidebar',
-          sidebarId: 'tutorialSidebar',
+          sidebarId: 'docsSidebar',
           position: 'left',
-          label: 'Tutorial',
+          label: 'Docs',
         },
-        { to: '/blog', label: 'Blog', position: 'left' },
         {
-          href: 'https://github.com/facebook/docusaurus',
+          to: '/docs/api/provide-api',
+          label: 'API reference',
+          position: 'left',
+        },
+        {
+          href: `https://www.npmjs.com/package/${packageName}`,
+          label: 'npm',
+          position: 'right',
+        },
+        {
+          href: repoUrl,
           label: 'GitHub',
           position: 'right',
         },
@@ -101,48 +116,36 @@ const config: Config = {
         {
           title: 'Docs',
           items: [
-            {
-              label: 'Tutorial',
-              to: '/docs/intro',
-            },
+            { label: 'Introduction', to: '/docs/intro' },
+            { label: 'Installation', to: '/docs/getting-started/installation' },
+            { label: 'Quick start', to: '/docs/getting-started/quick-start' },
+            { label: 'API reference', to: '/docs/api/provide-api' },
+          ],
+        },
+        {
+          title: 'Project',
+          items: [
+            { label: 'GitHub', href: repoUrl },
+            { label: 'npm', href: `https://www.npmjs.com/package/${packageName}` },
+            { label: 'Changelog', href: `${repoUrl}/releases` },
+            { label: 'Issues', href: `${repoUrl}/issues` },
           ],
         },
         {
           title: 'Community',
           items: [
-            {
-              label: 'Stack Overflow',
-              href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-            },
-            {
-              label: 'Discord',
-              href: 'https://discordapp.com/invite/docusaurus',
-            },
-            {
-              label: 'X',
-              href: 'https://x.com/docusaurus',
-            },
-          ],
-        },
-        {
-          title: 'More',
-          items: [
-            {
-              label: 'Blog',
-              to: '/blog',
-            },
-            {
-              label: 'GitHub',
-              href: 'https://github.com/facebook/docusaurus',
-            },
+            { label: 'Contributing', href: `${repoUrl}/blob/main/CONTRIBUTING.md` },
+            { label: 'Code of conduct', href: `${repoUrl}/blob/main/CODE_OF_CONDUCT.md` },
+            { label: 'Security policy', href: `${repoUrl}/blob/main/SECURITY.md` },
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} My Project, Inc. Built with Docusaurus.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Ismail ZAHIR. Released under the MIT License.`,
     },
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
+      additionalLanguages: ['bash', 'json', 'diff'],
     },
   } satisfies Preset.ThemeConfig,
 };

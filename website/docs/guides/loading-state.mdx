@@ -1,0 +1,103 @@
+---
+id: loading-state
+title: Loading state
+description: Use the ApiLoadingService signal to drive a global progress indicator without flicker.
+---
+
+# Loading state
+
+`ApiLoadingService` counts in-flight requests and exposes a signal. It counts
+rather than flags, so two concurrent calls don't switch the indicator off when
+the first one finishes.
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class ApiLoadingService {
+  readonly loading: Signal<boolean>;
+}
+```
+
+## Using it
+
+```ts title="src/app/app.component.ts"
+@Component({
+  selector: 'app-root',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (loading.loading()) {
+      <div class="progress" role="status" aria-live="polite">
+        <span class="visually-hidden">Loading…</span>
+      </div>
+    }
+
+    <router-outlet />
+  `,
+})
+export class AppComponent {
+  protected readonly loading = inject(ApiLoadingService);
+}
+```
+
+:::tip Accessibility
+An indicator that only changes visually is invisible to a screen reader. Give
+the region `role="status"` with `aria-live="polite"` and a visually-hidden text
+label, as above, so the state change is announced.
+:::
+
+## What counts
+
+Every `ApiService` call increments the counter on subscribe and decrements it
+when the observable completes, errors, or is unsubscribed — including on
+teardown, so a component destroyed mid-request never strands the counter.
+
+The counter moves **once per `ApiService` call, not once per HTTP attempt**, so a
+retried request keeps the indicator up for the whole operation.
+
+Because the request is built lazily, an observable you never subscribe to never
+touches the counter.
+
+## Excluding requests
+
+Background polling and telemetry usually shouldn't spin a global indicator:
+
+```ts
+this.api.get<Notification[]>('/notifications', { showLoader: false });
+```
+
+Or invert the default and opt in per call:
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  defaultShowLoader: false,
+});
+```
+
+```ts
+this.api.get<Order[]>('/orders', { showLoader: true });
+```
+
+## Local loading state
+
+`ApiLoadingService` is global by design. For a spinner scoped to one component,
+track it locally instead — the two coexist happily:
+
+```ts
+export class OrderListComponent {
+  private readonly orders = inject(OrderService);
+
+  protected readonly items = signal<Order[]>([]);
+  protected readonly busy = signal(false);
+
+  load(): void {
+    this.busy.set(true);
+    this.orders
+      .list(0, 20)
+      .pipe(finalize(() => this.busy.set(false)))
+      .subscribe((page) => this.items.set(page.content));
+  }
+}
+```
+
+Consider `showLoader: false` on such calls so the component's own spinner isn't
+duplicated by the global bar.

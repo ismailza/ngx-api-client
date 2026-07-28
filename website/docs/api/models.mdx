@@ -1,0 +1,223 @@
+---
+id: models
+title: Models and types
+description: Reference for every interface and type exported by ngx-api-client.
+---
+
+# Models and types
+
+Every interface and type below is exported from the package root.
+
+## `ApiRequestOptions`
+
+Accepted as the last argument of every `ApiService` method.
+
+```ts
+interface ApiRequestOptions {
+  version?: number | string | false;
+  prefix?: string | false;
+  retry?: boolean | RetryConfig;
+  showLoader?: boolean;
+  skipErrorHandler?: boolean;
+  successMessage?: boolean | string;
+  params?:
+    HttpParams | Record<string, string | number | boolean | readonly (string | number | boolean)[]>;
+  headers?: HttpHeaders | Record<string, string | string[]>;
+  context?: HttpContext;
+}
+```
+
+| Field              | Effect                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------- |
+| `version`          | Override the version; `false` sends this request unversioned. Ignored when `versioning: false` |
+| `prefix`           | Override the path prefix; `''` or `false` drops it                                             |
+| `retry`            | `false` disables, `true` uses global defaults, a `RetryConfig` overrides them                  |
+| `showLoader`       | Whether the request contributes to the loading state                                           |
+| `skipErrorHandler` | Bypasses the global `ApiErrorHandler`; the error is still thrown                               |
+| `successMessage`   | `string` for a custom message, `true` to force one, `false` to suppress it                     |
+| `params`           | Query parameters; arrays become repeated keys                                                  |
+| `headers`          | Request headers                                                                                |
+| `context`          | Your own `HttpContext`; the library adds its tokens to it rather than replacing it             |
+
+## `ApiError`
+
+```ts
+interface ApiError extends ProblemDetail {
+  type: string;
+  title?: string;
+  status: number;
+  detail: string;
+  instance?: string;
+  code?: ApiErrorCode;
+  timestamp: string;
+  traceId?: string;
+  errors?: ApiFieldError[];
+}
+```
+
+The one shape every failure arrives in. `detail` is always present — the
+interceptor substitutes a generic message when the response has none — which is
+the difference from `ProblemDetail`, where it is optional.
+
+| Field       | Notes                                                                   |
+| ----------- | ----------------------------------------------------------------------- |
+| `type`      | RFC 9457 problem type URI; `'about:blank'` when the response gives none |
+| `title`     | Short summary of the problem type, e.g. `'Bad Request'`                 |
+| `status`    | HTTP status; `0` denotes a client-side or network failure               |
+| `detail`    | Human-readable explanation, safe to show the user                       |
+| `instance`  | Path that produced the error                                            |
+| `code`      | Machine-readable code — branch on this, never on `detail`               |
+| `timestamp` | ISO 8601, stamped client-side when the failure was observed             |
+| `traceId`   | From the body, else the `X-Trace-Id` response header                    |
+| `errors`    | Field-level errors, present when `code === 'VALIDATION_ERROR'`          |
+
+### `ApiFieldError`
+
+```ts
+interface ApiFieldError {
+  field: string;
+  message: string;
+}
+```
+
+### `isApiError`
+
+```ts
+const isApiError: (value: unknown) => value is ApiError;
+```
+
+Type guard: `true` for an object carrying `status`, `detail` and `timestamp`.
+
+## `ProblemDetail`
+
+```ts
+interface ProblemDetail {
+  type: string;
+  title?: string;
+  status: number;
+  detail?: string;
+  instance?: string;
+  code?: string;
+  timestamp: string;
+  traceId?: string;
+  errors?: FieldError[];
+}
+```
+
+The wire format, per [RFC 9457](https://datatracker.ietf.org/doc/html/rfc9457)
+(formerly RFC 7807). `ApiError` extends it with a guaranteed `detail` and a
+typed `code`. `FieldError` is the wire-format counterpart of `ApiFieldError`.
+
+## `ApiErrorCode`
+
+```ts
+type ApiErrorCode =
+  | 'VALIDATION_ERROR'
+  | 'ENTITY_NOT_FOUND'
+  | 'ACCESS_DENIED'
+  | 'EXPIRED_TOKEN'
+  | 'EXTERNAL_SERVICE_ERROR'
+  | 'INTERNAL_ERROR'
+  | (string & NonNullable<unknown>);
+```
+
+An open union: the listed codes get autocompletion, and any other string your
+backend introduces is still assignable. `apiErrorInterceptor` additionally
+produces `'NETWORK_ERROR'` for status `0`.
+
+## `PaginatedResponse<T>`
+
+```ts
+interface PaginatedResponse<T> {
+  content: T[];
+  page: {
+    number: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+  };
+}
+```
+
+Returned by `getPage()`. If your backend paginates differently, use `get<T>()`
+with your own interface.
+
+## `ApiVersioningStrategy`
+
+```ts
+type ApiVersioningStrategy = 'url' | 'query-param' | 'header' | 'media-type';
+```
+
+## `ApiVersioningConfig`
+
+```ts
+interface ApiVersioningConfig {
+  strategy?: ApiVersioningStrategy;
+  prefix?: string;
+  parameterName?: string;
+  headerName?: string;
+  mediaType?: string;
+}
+```
+
+| Field           | Applies to      | Default                                 |
+| --------------- | --------------- | --------------------------------------- |
+| `strategy`      | —               | `'url'`                                 |
+| `prefix`        | `'url'`         | `'v'`                                   |
+| `parameterName` | `'query-param'` | `'v'`                                   |
+| `headerName`    | `'header'`      | `'X-API-Version'`                       |
+| `mediaType`     | `'media-type'`  | `'application/vnd.api.v{version}+json'` |
+
+Fields irrelevant to the chosen strategy are ignored, so switching strategies
+never requires rewriting the config. In `mediaType`, every `{version}`
+placeholder is replaced with the resolved version.
+
+`ResolvedApiVersioning` is `Required<ApiVersioningConfig>` — the shape stored in
+`API_VERSIONING` with every default filled in.
+
+## `RetryConfig`
+
+```ts
+interface RetryConfig {
+  maxRetries?: number;
+  initialDelay?: number;
+  multiplier?: number;
+  retryableStatuses?: number[];
+}
+```
+
+| Field               | Default                          |
+| ------------------- | -------------------------------- |
+| `maxRetries`        | `3`                              |
+| `initialDelay`      | `1000` (ms)                      |
+| `multiplier`        | `2`                              |
+| `retryableStatuses` | `[408, 429, 500, 502, 503, 504]` |
+
+## `ApiDefaultSuccessMessages`
+
+```ts
+interface ApiDefaultSuccessMessages {
+  post?: string;
+  put?: string;
+  patch?: string;
+  delete?: string;
+}
+```
+
+Defaults: `'Created successfully.'`, `'Updated successfully.'`,
+`'Updated successfully.'`, `'Deleted successfully.'`. The exported
+`GENERIC_SUCCESS_MESSAGE` (`'Operation completed successfully.'`) is used when a
+request forces a message on a method with no configured default.
+
+## Exported constants
+
+| Constant                     | Value                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `API_CONFIGURATION_DEFAULTS` | `{ prefix: 'api', version: 1, defaultShowLoader: true, defaultShowSuccessMessage: true }` |
+| `API_VERSIONING_DEFAULTS`    | The resolved versioning defaults in the table above                                       |
+| `RETRY_CONFIG_DEFAULTS`      | The retry defaults in the table above                                                     |
+| `SUCCESS_MESSAGE_DEFAULTS`   | The per-method success messages                                                           |
+| `GENERIC_SUCCESS_MESSAGE`    | `'Operation completed successfully.'`                                                     |
+
+These are exported mainly so tests and custom handlers can assert against the
+same values the library uses.

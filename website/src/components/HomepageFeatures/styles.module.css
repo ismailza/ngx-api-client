@@ -1,11 +1,66 @@
 .features {
-  display: flex;
-  align-items: center;
-  padding: 2rem 0;
-  width: 100%;
+  padding: 3rem 0;
 }
 
-.featureSvg {
-  height: 200px;
-  width: 200px;
+.sectionHeading {
+  text-align: center;
+  margin-bottom: 0.5rem;
+}
+
+.sectionLead {
+  text-align: center;
+  max-width: 44rem;
+  margin: 0 auto 2.5rem;
+  color: var(--ifm-color-emphasis-700);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 1.25rem;
+}
+
+.card {
+  height: 100%;
+  padding: 1.5rem;
+  border: 1px solid var(--nac-border);
+  border-radius: var(--ifm-global-radius);
+  background: var(--nac-surface);
+  transition:
+    border-color 200ms ease,
+    transform 200ms ease;
+}
+
+.card:hover {
+  border-color: var(--ifm-color-primary);
+  transform: translateY(-2px);
+}
+
+.icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  color: var(--ifm-color-primary);
+  margin-bottom: 0.85rem;
+}
+
+.cardTitle {
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+}
+
+.cardBody {
+  margin-bottom: 0;
+  color: var(--ifm-color-emphasis-800);
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
 }

@@ -1,0 +1,184 @@
+---
+id: quick-start
+title: Quick start
+description: Build a typed, retried, error-normalised data service with ngx-api-client in five minutes.
+---
+
+# Quick start
+
+This walks through a complete setup: configuration, a typed data service, a
+component that renders errors, and a global loading bar.
+
+## 1. Configure
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  provideApi,
+  apiErrorInterceptor,
+  apiSuccessInterceptor,
+  retryInterceptor,
+} from '@ismailza/ngx-api-client';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideApi({
+      baseUrl: 'https://api.example.com',
+      prefix: 'api', // {baseUrl}/api/...  — '' or false to omit
+      version: 1,
+      versioning: 'url', // 'query-param' | 'header' | 'media-type' | false
+      retry: { maxRetries: 3, initialDelay: 1000 },
+    }),
+    provideHttpClient(
+      withInterceptors([apiErrorInterceptor, apiSuccessInterceptor, retryInterceptor]),
+    ),
+  ],
+};
+```
+
+## 2. Write a data service
+
+Inject `ApiService` and describe your endpoints. Nothing here mentions the base
+URL, the version, retry or error handling — those are policy, and policy lives
+in the configuration.
+
+```ts title="src/app/orders/order.service.ts"
+import { inject, Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { ApiService, PaginatedResponse } from '@ismailza/ngx-api-client';
+
+@Injectable({ providedIn: 'root' })
+export class OrderService {
+  private readonly api = inject(ApiService);
+
+  list(page: number, size: number): Observable<PaginatedResponse<Order>> {
+    return this.api.getPage<Order>('/orders', page, size);
+  }
+
+  get(id: string): Observable<Order> {
+    return this.api.get<Order>(`/orders/${id}`);
+  }
+
+  create(order: OrderRequest): Observable<Order> {
+    return this.api.post<Order>('/orders', order);
+  }
+
+  update(id: string, order: OrderRequest): Observable<Order> {
+    return this.api.put<Order>(`/orders/${id}`, order, { successMessage: 'Order updated' });
+  }
+
+  remove(id: string): Observable<void> {
+    return this.api.delete<void>(`/orders/${id}`);
+  }
+}
+```
+
+With the configuration above, `list(0, 20)` requests:
+
+```
+https://api.example.com/api/v1/orders?page=0&size=20
+```
+
+## 3. Consume it in a component
+
+Failures arrive as an [`ApiError`](../guides/error-handling.mdx) — the same shape
+whatever the backend sent.
+
+```ts title="src/app/orders/order-list.component.ts"
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ApiError, PaginatedResponse } from '@ismailza/ngx-api-client';
+import { OrderService } from './order.service';
+
+@Component({
+  selector: 'app-order-list',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (error(); as err) {
+      <p role="alert">{{ err.detail }}</p>
+    }
+
+    @for (order of orders(); track order.id) {
+      <article>{{ order.reference }}</article>
+    }
+  `,
+})
+export class OrderListComponent {
+  private readonly orders$ = inject(OrderService);
+
+  protected readonly orders = signal<Order[]>([]);
+  protected readonly error = signal<ApiError | null>(null);
+
+  constructor() {
+    this.orders$.list(0, 20).subscribe({
+      next: (page: PaginatedResponse<Order>) => this.orders.set(page.content),
+      error: (err: ApiError) => this.error.set(err),
+    });
+  }
+}
+```
+
+## 4. Show errors globally
+
+The library will not render an error for you. Provide an `ApiErrorHandler` that
+adapts `ApiError` to your UI kit, and every failed request in the application is
+reported the same way.
+
+```ts title="src/app/core/toast-api-error.handler.ts"
+import { inject, Injectable } from '@angular/core';
+import { Router } from '@angular/router';
+import { ApiError, ApiErrorHandler } from '@ismailza/ngx-api-client';
+
+@Injectable()
+export class ToastApiErrorHandler extends ApiErrorHandler {
+  private readonly toast = inject(MyToastService);
+  private readonly router = inject(Router);
+
+  override handle(error: ApiError): void {
+    if (error.status === 403) {
+      this.router.navigate(['/forbidden']);
+      return;
+    }
+
+    this.toast.error(error.detail, { title: error.title });
+  }
+}
+```
+
+```ts title="src/app/app.config.ts"
+providers: [
+  // ...
+  { provide: ApiErrorHandler, useClass: ToastApiErrorHandler },
+];
+```
+
+Do the same with `ApiSuccessHandler` to present success messages — see
+[Success messages](../guides/success-messages.mdx).
+
+## 5. Add a loading bar
+
+`ApiLoadingService` counts in-flight requests, so concurrent calls don't flicker
+the indicator off early.
+
+```ts title="src/app/app.component.ts"
+@Component({
+  selector: 'app-root',
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    @if (loading.loading()) {
+      <my-progress-bar />
+    }
+    <router-outlet />
+  `,
+})
+export class AppComponent {
+  protected readonly loading = inject(ApiLoadingService);
+}
+```
+
+## Where to go next
+
+- [Configuration](../guides/configuration.mdx) — every option and its default
+- [Making requests](../guides/making-requests.mdx) — per-request overrides, params, pagination
+- [Error handling](../guides/error-handling.mdx) — the `ApiError` contract
+- [Testing](../guides/testing.mdx) — how to test services built on `ApiService`

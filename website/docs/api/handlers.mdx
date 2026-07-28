@@ -1,0 +1,112 @@
+---
+id: handlers
+title: Handlers
+description: API reference for ApiErrorHandler, ApiSuccessHandler and their presentation-free defaults.
+---
+
+# Handlers
+
+Handlers are the seam between the library and your UI. The library normalises
+and routes; presentation is entirely yours.
+
+## `ApiErrorHandler`
+
+```ts
+@Injectable()
+abstract class ApiErrorHandler {
+  abstract handle(error: ApiError): void;
+}
+```
+
+Called by [`apiErrorInterceptor`](./interceptors.mdx#apierrorinterceptor) for
+every failed request, unless that request set `skipErrorHandler: true`.
+
+Extend it and register the subclass to present errors:
+
+```ts
+@Injectable()
+export class ToastApiErrorHandler extends ApiErrorHandler {
+  private readonly toast = inject(MyToastService);
+  private readonly router = inject(Router);
+
+  override handle(error: ApiError): void {
+    if (error.status === 403) {
+      this.router.navigate(['/forbidden']);
+      return;
+    }
+
+    this.toast.error(error.detail, { title: error.title });
+  }
+}
+```
+
+```ts title="src/app/app.config.ts"
+providers: [
+  provideApi({ baseUrl: 'https://api.example.com' }),
+  { provide: ApiErrorHandler, useClass: ToastApiErrorHandler },
+];
+```
+
+The abstract class is the DI token, so `inject(ApiErrorHandler)` resolves to
+whichever implementation is registered. Place your provider **after**
+`provideApi()` so it wins over the fallback.
+
+## `ApiSuccessHandler`
+
+```ts
+@Injectable()
+abstract class ApiSuccessHandler {
+  abstract handle(message: string): void;
+}
+```
+
+Called by [`apiSuccessInterceptor`](./interceptors.mdx#apisuccessinterceptor)
+when a request's `successMessage` resolves to a string.
+
+```ts
+@Injectable()
+export class ToastApiSuccessHandler extends ApiSuccessHandler {
+  private readonly toast = inject(MyToastService);
+
+  override handle(message: string): void {
+    this.toast.success(message, { life: 3000 });
+  }
+}
+```
+
+## `DefaultApiErrorHandler`
+
+```ts
+@Injectable()
+class DefaultApiErrorHandler extends ApiErrorHandler
+```
+
+Registered by `provideApi()` when the application provides nothing else.
+Forwards the `ApiError` to Angular's built-in `ErrorHandler` so the failure
+surfaces through whatever reporting is already wired up, and does no
+presentation of its own.
+
+:::warning
+Angular's `ErrorHandler` logs what it is given, and here that is the whole
+`ApiError`. If your API puts sensitive data in `detail` or `instance`, register
+your own handler rather than relying on this fallback.
+:::
+
+## `DefaultApiSuccessHandler`
+
+```ts
+@Injectable()
+class DefaultApiSuccessHandler extends ApiSuccessHandler
+```
+
+Registered by `provideApi()` when the application provides nothing else. Does
+nothing at all: a success message is purely presentational, and the library has
+no way to render one without taking on a UI dependency. Resolved messages are
+dropped until you supply an adapter.
+
+## Why the library ships no presentation
+
+Rendering means choosing a toast library, a position, a duration, an animation
+and an accessibility story — decisions that belong to the application, not to an
+HTTP layer. Keeping them out is what lets the package declare `@angular/core`,
+`@angular/common` and `rxjs` as its only peers.

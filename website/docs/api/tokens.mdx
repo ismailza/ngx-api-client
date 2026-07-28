@@ -1,0 +1,82 @@
+---
+id: tokens
+title: Injection tokens
+description: The DI and HttpContext tokens ngx-api-client uses, for advanced customisation and testing.
+---
+
+# Injection tokens
+
+Most applications never touch these — `provideApi()` sets them all. They are
+exported for tests, for custom interceptors, and for the occasional case where
+one value needs to come from somewhere else.
+
+## Configuration tokens
+
+| Token                              | Type                                  | Set from                                            |
+| ---------------------------------- | ------------------------------------- | --------------------------------------------------- |
+| `API_BASE_URL`                     | `string`                              | `baseUrl`, trailing slash trimmed                   |
+| `API_PREFIX`                       | `string`                              | `prefix`, normalised to a bare segment              |
+| `API_VERSION`                      | `number \| string`                    | `version`                                           |
+| `API_VERSIONING`                   | `ResolvedApiVersioning \| null`       | `versioning`; `null` when disabled                  |
+| `API_RETRY_CONFIG`                 | `Required<RetryConfig> \| null`       | `retry`; `null` when disabled                       |
+| `API_DEFAULT_SHOW_LOADER`          | `boolean`                             | `defaultShowLoader`                                 |
+| `API_DEFAULT_SHOW_SUCCESS_MESSAGE` | `boolean`                             | `defaultShowSuccessMessage`                         |
+| `API_DEFAULT_SUCCESS_MESSAGES`     | `Required<ApiDefaultSuccessMessages>` | `defaultSuccessMessages`, merged over the built-ins |
+
+All but `API_BASE_URL`, `API_RETRY_CONFIG` and `API_DEFAULT_SUCCESS_MESSAGES`
+declare a root-level factory with the documented default, so they resolve even
+if `provideApi()` was never called.
+
+### Overriding one value
+
+Providing a token after `provideApi()` replaces just that value — useful when
+the base URL is only known at runtime:
+
+```ts
+providers: [
+  provideApi({ baseUrl: 'https://placeholder.invalid' }),
+  { provide: API_BASE_URL, useFactory: () => inject(RuntimeConfig).apiUrl },
+];
+```
+
+Note that `provideApi()` trims and normalises what you pass it; a value provided
+directly is used as-is, so normalise it yourself.
+
+## `HttpContext` tokens
+
+`ApiService` attaches these to each request so interceptors can read what that
+request asked for, without consulting shared mutable state.
+
+| Token                 | Type                | Set when                               |
+| --------------------- | ------------------- | -------------------------------------- |
+| `API_REQUEST_OPTIONS` | `ApiRequestOptions` | Any options were passed (default `{}`) |
+| `SKIP_RETRY`          | `boolean`           | `retry: false`                         |
+| `SKIP_ERROR_HANDLER`  | `boolean`           | `skipErrorHandler: true`               |
+| `SKIP_LOADER`         | `boolean`           | `showLoader: false`                    |
+
+### Reading them in your own interceptor
+
+```ts
+export const auditInterceptor: HttpInterceptorFn = (req, next) => {
+  const options = req.context.get(API_REQUEST_OPTIONS);
+
+  if (options.skipErrorHandler) {
+    // this call handles its own failures — don't double-report
+  }
+
+  return next(req);
+};
+```
+
+### Setting them from outside `ApiService`
+
+For a request made directly through `HttpClient` — a file upload, say — you can
+set the same flags yourself:
+
+```ts
+this.http.post('/api/v1/files', formData, {
+  context: new HttpContext().set(SKIP_RETRY, true),
+});
+```
+
+The interceptors read the context, not the caller, so they behave identically.

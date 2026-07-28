@@ -1,0 +1,157 @@
+---
+id: configuration
+title: Configuration
+description: Every provideApi() option in ngx-api-client, its default, and how per-request overrides interact with it.
+---
+
+# Configuration
+
+`provideApi()` takes a single `ApiConfiguration` object and registers the DI
+tokens the rest of the library reads. Call it once, in your application config.
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+});
+```
+
+## Options
+
+| Option                      | Type                                                    | Default                                                | Description                                               |
+| --------------------------- | ------------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| `baseUrl`                   | `string`                                                | _required_                                             | API root; a trailing slash is trimmed                     |
+| `prefix`                    | `string \| false`                                       | `'api'`                                                | Static path segment; `''` or `false` omits it             |
+| `version`                   | `number \| string`                                      | `1`                                                    | Version value; strings allow date- or label-based schemes |
+| `versioning`                | `ApiVersioningStrategy \| ApiVersioningConfig \| false` | `'url'`                                                | How the version travels, or `false` to send none          |
+| `retry`                     | `RetryConfig \| false`                                  | `{ maxRetries: 3, initialDelay: 1000, multiplier: 2 }` | `false` disables retry globally                           |
+| `defaultShowLoader`         | `boolean`                                               | `true`                                                 | Whether requests track loading state                      |
+| `defaultShowSuccessMessage` | `boolean`                                               | `true`                                                 | Success message on mutating methods                       |
+| `defaultSuccessMessages`    | `ApiDefaultSuccessMessages`                             | per-method English defaults                            | Merged over the built-ins                                 |
+
+## `baseUrl`
+
+The only required option. A trailing slash is trimmed, so
+`'https://api.example.com'` and `'https://api.example.com/'` behave identically.
+
+## `prefix`
+
+A static path segment inserted between the base URL and the endpoint, whatever
+the versioning strategy: `{baseUrl}/{prefix}/...`. It defaults to `'api'`.
+
+```ts
+provideApi({ baseUrl: 'https://api.example.com' });
+// → https://api.example.com/api/v1/orders
+
+provideApi({ baseUrl: 'https://api.example.com', prefix: false });
+// → https://api.example.com/v1/orders
+```
+
+Surrounding slashes are normalised away, so `'/api/'` and `'api'` are the same
+thing. Override it for a single call with `prefix` in
+[`ApiRequestOptions`](./making-requests.mdx#per-request-options).
+
+## `version` and `versioning`
+
+`version` is the value; `versioning` decides how it is carried. Both have a
+whole guide of their own — see [Versioning](./versioning.mdx).
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  version: '2024-01-01',
+  versioning: { strategy: 'header', headerName: 'Api-Version' },
+});
+```
+
+## `retry`
+
+Global retry policy, merged over the built-in defaults. `false` disables retry
+for the whole application.
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  retry: { maxRetries: 5, initialDelay: 500, retryableStatuses: [502, 503, 504] },
+});
+```
+
+See [Retry](./retry.mdx) for the backoff formula and which requests are eligible.
+
+## `defaultShowLoader`
+
+Whether requests contribute to [`ApiLoadingService`](./loading-state.mdx) by
+default. Set it to `false` when you'd rather opt individual requests in with
+`showLoader: true`.
+
+## `defaultShowSuccessMessage` and `defaultSuccessMessages`
+
+Whether a mutating request (POST/PUT/PATCH/DELETE) reports a success message,
+and what that message says per method. `GET` never reports one unless a request
+asks for it explicitly.
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  defaultSuccessMessages: {
+    post: 'Record created',
+    delete: 'Record deleted',
+    // put and patch keep their built-in defaults
+  },
+});
+```
+
+Messages are plain strings so the package carries no i18n dependency — pass
+already-translated values in, or do the wording in your own `ApiSuccessHandler`.
+See [Success messages](./success-messages.mdx).
+
+## `undefined` is treated as "not provided"
+
+Every option falls back to its default when omitted _or_ when passed explicitly
+as `undefined`. Building the configuration from optional sources is therefore
+safe:
+
+```ts
+provideApi({
+  baseUrl: environment.apiUrl,
+  prefix: environment.apiPrefix, // undefined → falls back to 'api'
+  version: environment.apiVersion, // undefined → falls back to 1
+});
+```
+
+Without that rule, an unset environment field would spread `undefined` over the
+default and produce a URL with a missing segment.
+
+## Environment-driven configuration
+
+A common arrangement keeps the whole object in the environment file:
+
+```ts title="src/environments/environment.ts"
+import { ApiConfiguration } from '@ismailza/ngx-api-client';
+
+export const environment = {
+  production: false,
+  api: {
+    baseUrl: 'https://staging-api.example.com',
+    version: 1,
+    retry: { maxRetries: 2 },
+  } satisfies ApiConfiguration,
+};
+```
+
+```ts title="src/app/app.config.ts"
+providers: [provideApi(environment.api)];
+```
+
+## What `provideApi()` registers
+
+- The DI tokens `API_BASE_URL`, `API_PREFIX`, `API_VERSION`, `API_VERSIONING`,
+  `API_RETRY_CONFIG`, `API_DEFAULT_SHOW_LOADER`,
+  `API_DEFAULT_SHOW_SUCCESS_MESSAGE` and `API_DEFAULT_SUCCESS_MESSAGES` — see
+  [Tokens](../api/tokens.mdx).
+- A fallback `ApiErrorHandler` (`DefaultApiErrorHandler`, which forwards to
+  Angular's `ErrorHandler`).
+- A fallback `ApiSuccessHandler` (`DefaultApiSuccessHandler`, which discards the
+  message).
+
+It does **not** register the interceptors. You do that in `withInterceptors()`
+so you control their order — see [Installation](../getting-started/installation.mdx#interceptor-order-matters).

@@ -1,0 +1,98 @@
+---
+id: api-service
+title: ApiService
+description: API reference for ApiService and ApiLoadingService.
+---
+
+# `ApiService`
+
+```ts
+@Injectable({ providedIn: 'root' })
+class ApiService
+```
+
+The single entry point for HTTP calls. Builds URLs from the configured
+`baseUrl`, `prefix` and versioning strategy, attaches per-request options to the
+`HttpContext` for interceptors, and tracks loading state.
+
+Every method returns an `Observable` of the **response body**, typed as `T`.
+Requests are created lazily — nothing is sent until you subscribe.
+
+## `get`
+
+```ts
+get<T>(endpoint: string, options?: ApiRequestOptions): Observable<T>
+```
+
+```ts
+this.api.get<Order>('/orders/42');
+this.api.get<Order[]>('/orders', { params: { status: 'OPEN' } });
+```
+
+## `post`
+
+```ts
+post<T>(endpoint: string, body: unknown, options?: ApiRequestOptions): Observable<T>
+```
+
+Not retried by default — see [Retry](../guides/retry.mdx#why-post-is-excluded).
+
+```ts
+this.api.post<Order>('/orders', draft);
+```
+
+## `put`
+
+```ts
+put<T>(endpoint: string, body: unknown, options?: ApiRequestOptions): Observable<T>
+```
+
+## `patch`
+
+```ts
+patch<T>(endpoint: string, body: unknown, options?: ApiRequestOptions): Observable<T>
+```
+
+## `delete`
+
+```ts
+delete<T>(endpoint: string, options?: ApiRequestOptions): Observable<T>
+```
+
+```ts
+this.api.delete<void>(`/orders/${id}`);
+```
+
+## `getPage`
+
+```ts
+getPage<T>(
+  endpoint: string,
+  page: number,
+  size: number,
+  options?: ApiRequestOptions,
+): Observable<PaginatedResponse<T>>
+```
+
+Appends `page` and `size` as query parameters and types the result as
+[`PaginatedResponse<T>`](./models.mdx#paginatedresponset). Any `params` you pass
+in `options` are merged with the pagination pair rather than replaced.
+
+```ts
+this.api.getPage<Order>('/orders', 0, 20, { params: { status: 'OPEN' } });
+// → /api/v1/orders?status=OPEN&page=0&size=20
+```
+
+## Behaviour notes
+
+- **Leading slashes are optional.** `'orders'` and `'/orders'` produce the same
+  URL.
+- **Explicit headers and params win.** A header or query parameter you set is
+  never overwritten by the versioning strategy.
+- **URL versions are percent-encoded**, so a version taken from user input
+  cannot escape its path segment.
+- **Params accept primitives and arrays.** Numbers and booleans are stringified;
+  arrays are appended as repeated keys.
+- **The loading counter moves once per call**, not once per HTTP attempt, and is
+  released on completion, error or unsubscribe — see
+  [`ApiLoadingService`](./api-loading-service.mdx).

@@ -1,0 +1,123 @@
+---
+id: versioning
+title: URL shape and versioning
+description: How ngx-api-client builds request URLs and carries the API version — URL segment, query parameter, header, media type, or not at all.
+---
+
+# URL shape and versioning
+
+A URL is `{baseUrl}` + an optional `{prefix}` segment + an optional version
+segment + `{endpoint}`. Both middle pieces are yours to configure — or remove.
+
+```
+https://api.example.com  /api      /v2      /orders
+└─ baseUrl ───────────┘  └ prefix┘ └version┘ └ endpoint
+```
+
+```ts
+provideApi({ baseUrl: 'https://api.example.com', prefix: 'api', version: 2 });
+// → https://api.example.com/api/v2/orders
+```
+
+## Strategies
+
+`versioning` picks how the version travels. Results below are for
+`GET /orders` with `version: 2` and `prefix: 'api'`.
+
+| `versioning`                                        | Result                                |
+| --------------------------------------------------- | ------------------------------------- |
+| `'url'` _(default)_                                 | `/api/v2/orders`                      |
+| `{ strategy: 'url', prefix: '' }`                   | `/api/2/orders`                       |
+| `'query-param'`                                     | `/api/orders?v=2`                     |
+| `{ strategy: 'query-param', parameterName: 'ver' }` | `/api/orders?ver=2`                   |
+| `'header'`                                          | `/api/orders` + `X-API-Version: 2`    |
+| `{ strategy: 'header', headerName: 'Api-Version' }` | `/api/orders` + `Api-Version: 2`      |
+| `'media-type'`                                      | `Accept: application/vnd.api.v2+json` |
+| `false`                                             | `/api/orders`, no version sent        |
+
+A bare strategy name is shorthand for `{ strategy: name }` with default naming.
+A partial config object is merged over the defaults, and only the fields
+relevant to the chosen strategy are read — so switching strategies never
+requires rewriting the rest of the config.
+
+### `ApiVersioningConfig` defaults
+
+| Field           | Applies to      | Default                                 |
+| --------------- | --------------- | --------------------------------------- |
+| `strategy`      | —               | `'url'`                                 |
+| `prefix`        | `'url'`         | `'v'`                                   |
+| `parameterName` | `'query-param'` | `'v'`                                   |
+| `headerName`    | `'header'`      | `'X-API-Version'`                       |
+| `mediaType`     | `'media-type'`  | `'application/vnd.api.v{version}+json'` |
+
+:::info Two different `prefix` fields
+`ApiConfiguration.prefix` is the static path segment (`api`).
+`ApiVersioningConfig.prefix` is the text before the version inside its own
+segment (`v` in `v2`). They are independent.
+:::
+
+### Media type templates
+
+For `'media-type'`, `mediaType` is a template whose `{version}` placeholders are
+substituted with the resolved version:
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  version: 3,
+  versioning: { strategy: 'media-type', mediaType: 'application/vnd.acme.v{version}+json' },
+});
+// → Accept: application/vnd.acme.v3+json
+```
+
+## Non-numeric versions
+
+`version` accepts strings too, for date- or label-based schemes:
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  version: '2024-01-01',
+  versioning: { strategy: 'header', headerName: 'Api-Version' },
+});
+// → Api-Version: 2024-01-01
+```
+
+## Per-request overrides
+
+```ts
+// Pin this call to v1 while the app defaults to v2
+this.api.get<LegacyOrder>('/orders', { version: 1 });
+
+// Send this one request unversioned
+this.api.get<Health>('/health', { version: false });
+
+// Leave the API prefix as well
+this.api.get<Health>('/health', { prefix: false, version: false });
+```
+
+## Rules worth knowing
+
+- **Explicit wins.** A header or query parameter you set yourself is never
+  overwritten by the versioning strategy.
+- **URL versions are encoded.** A version placed in the path is
+  percent-encoded, so a value from a route parameter or user input cannot escape
+  its own segment with a `/` or `..`.
+- **`versioning: false` ignores per-request versions.** With no strategy there
+  is nothing to carry the version, so `ApiRequestOptions.version` is ignored
+  rather than guessed at.
+- **Empty versions are dropped.** A resolved version of `false`, `null`,
+  `undefined` or `''` produces no version segment, parameter or header.
+
+## Serving from the root
+
+When the API has no prefix segment:
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  prefix: false,
+  versioning: false,
+});
+// GET /orders → https://api.example.com/orders
+```

@@ -1,0 +1,116 @@
+---
+id: success-messages
+title: Success messages
+description: How ngx-api-client resolves a success message per request and hands it to your own ApiSuccessHandler.
+---
+
+# Success messages
+
+`apiSuccessInterceptor` resolves a message for successful requests and hands it
+to the configured `ApiSuccessHandler`. As with errors, the library presents
+nothing itself — the default handler discards the message until you supply an
+adapter for your UI kit.
+
+```ts
+provideHttpClient(withInterceptors([apiErrorInterceptor, apiSuccessInterceptor, retryInterceptor]));
+```
+
+## Resolution rules
+
+For each successful response, `ApiRequestOptions.successMessage` decides:
+
+| Value               | Result                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| `string`            | That exact message                                                                               |
+| `false`             | No message, even if enabled globally                                                             |
+| `true`              | The configured default for the request's method — including for `GET`                            |
+| omitted _(default)_ | The method's default, but only for POST/PUT/PATCH/DELETE and only if `defaultShowSuccessMessage` |
+
+If a method has no configured default — `GET` with `successMessage: true`, for
+instance — the generic fallback `'Operation completed successfully.'` is used.
+
+## Default messages
+
+| Method   | Default message         |
+| -------- | ----------------------- |
+| `POST`   | `Created successfully.` |
+| `PUT`    | `Updated successfully.` |
+| `PATCH`  | `Updated successfully.` |
+| `DELETE` | `Deleted successfully.` |
+
+Override any subset; the rest keep their built-ins:
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  defaultSuccessMessages: {
+    post: 'Record created',
+    delete: 'Record deleted',
+  },
+});
+```
+
+Turn the whole behaviour off with `defaultShowSuccessMessage: false`, and opt
+individual calls back in with `successMessage: true` or a string.
+
+## Presenting them
+
+```ts
+@Injectable()
+export class ToastApiSuccessHandler extends ApiSuccessHandler {
+  private readonly toast = inject(MyToastService);
+
+  override handle(message: string): void {
+    this.toast.success(message, { life: 3000 });
+  }
+}
+```
+
+```ts title="src/app/app.config.ts"
+providers: [{ provide: ApiSuccessHandler, useClass: ToastApiSuccessHandler }];
+```
+
+## Per-request control
+
+```ts
+// A specific message for this operation
+this.api.put(`/orders/${id}`, order, { successMessage: 'Order updated' });
+
+// Silence a background save
+this.api.patch(`/drafts/${id}`, draft, { successMessage: false });
+
+// Report a read, which normally says nothing
+this.api.get<Report>('/reports/daily', { successMessage: 'Report refreshed' });
+```
+
+## Translated messages
+
+Messages are plain strings, so the package carries no i18n dependency. Either
+pass already-translated values into `defaultSuccessMessages`:
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  defaultSuccessMessages: {
+    post: translate('api.created'),
+    put: translate('api.updated'),
+  },
+});
+```
+
+…or skip the defaults entirely and do the wording inside your handler, where the
+injector gives you access to your translation service:
+
+```ts
+@Injectable()
+export class I18nApiSuccessHandler extends ApiSuccessHandler {
+  private readonly translate = inject(TranslateService);
+  private readonly toast = inject(MyToastService);
+
+  override handle(key: string): void {
+    this.toast.success(this.translate.instant(key));
+  }
+}
+```
+
+With that arrangement, pass translation keys as the messages rather than prose.

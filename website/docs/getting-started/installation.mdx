@@ -1,0 +1,137 @@
+---
+id: installation
+title: Installation
+description: Install @ismailza/ngx-api-client and register its providers and interceptors in an Angular application.
+---
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# Installation
+
+## Requirements
+
+| Requirement | Version                                                   |
+| ----------- | --------------------------------------------------------- |
+| Angular     | `>=17` (developed and tested against 21)                  |
+| RxJS        | `^7.4.0`                                                  |
+| Peer deps   | `@angular/core`, `@angular/common`, `rxjs` — nothing else |
+
+## Install
+
+<Tabs groupId="package-manager">
+  <TabItem value="npm" label="npm" default>
+
+```bash
+npm install @ismailza/ngx-api-client
+```
+
+  </TabItem>
+  <TabItem value="pnpm" label="pnpm">
+
+```bash
+pnpm add @ismailza/ngx-api-client
+```
+
+  </TabItem>
+  <TabItem value="yarn" label="Yarn">
+
+```bash
+yarn add @ismailza/ngx-api-client
+```
+
+  </TabItem>
+</Tabs>
+
+## Register the providers
+
+`provideApi()` supplies the configuration; `provideHttpClient()` supplies the
+interceptors. Both go in your application config.
+
+```ts title="src/app/app.config.ts"
+import { ApplicationConfig } from '@angular/core';
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  provideApi,
+  apiErrorInterceptor,
+  apiSuccessInterceptor,
+  retryInterceptor,
+} from '@ismailza/ngx-api-client';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideApi({
+      baseUrl: 'https://api.example.com',
+    }),
+    provideHttpClient(
+      withInterceptors([apiErrorInterceptor, apiSuccessInterceptor, retryInterceptor]),
+    ),
+  ],
+};
+```
+
+`baseUrl` is the only required option. Everything else has a default — see
+[Configuration](../guides/configuration.mdx).
+
+## Interceptor order matters
+
+Interceptors are registered by you, not by `provideApi()`, because the order
+determines the behaviour and only you know what else is in the chain.
+
+The rule to remember: **the first interceptor in the array is the outermost
+one**. Each subsequent interceptor is nested inside it, and the last one sits
+closest to the network.
+
+```ts
+withInterceptors([
+  apiErrorInterceptor, // 1. outermost — normalises the failure that survived every retry
+  apiSuccessInterceptor, // 2. reports the messages of successful calls
+  retryInterceptor, // 3. retries transient failures
+  bearerTokenInterceptor, // 4. innermost — re-signs every single attempt
+]);
+```
+
+- **`apiErrorInterceptor` must come before `retryInterceptor`.** It converts an
+  `HttpErrorResponse` into a plain `ApiError`, and `retryInterceptor` only
+  recognises the former. Nest the error interceptor inside the retry one and
+  **retry silently stops working** — every request gets exactly one attempt.
+  Outermost, it also fires your handler once per failed operation rather than
+  once per attempt.
+- **Put an auth/bearer-token interceptor last**, inside `retryInterceptor`, so
+  each retried attempt is re-signed with a fresh token instead of replaying an
+  expired one.
+
+:::danger A common mistake
+`withInterceptors([retryInterceptor, apiErrorInterceptor])` looks like the
+natural reading order, but it disables retry entirely. Errors reach
+`retryInterceptor` already normalised, and it has nothing left to match on.
+:::
+
+:::tip Register only what you use
+The three interceptors are independent. If you don't want automatic retry,
+leave `retryInterceptor` out — the rest keeps working. `ApiService` itself works
+with no interceptors at all; you just lose error normalisation, retry and
+success messages.
+:::
+
+## Verify the setup
+
+Inject `ApiService` anywhere and call an endpoint:
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class HealthService {
+  private readonly api = inject(ApiService);
+
+  check(): Observable<{ status: string }> {
+    return this.api.get('/health', { prefix: false, version: false });
+  }
+}
+```
+
+With the config above, that requests `https://api.example.com/health`.
+
+## Next
+
+Head to the [Quick start](./quick-start.mdx) to build a complete, typed data
+service.

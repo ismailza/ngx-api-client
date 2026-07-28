@@ -1,47 +1,103 @@
 ---
-sidebar_position: 1
+id: intro
+title: Introduction
+description: A typed, interceptor-driven HTTP layer for Angular — versioned URLs, RFC 9457 error normalisation, retry with backoff, and pluggable handlers.
+slug: /intro
 ---
 
-# Tutorial Intro
+# Introduction
 
-Let's discover **Docusaurus in less than 5 minutes**.
+`HttpClient` gives you a request. It doesn't give you a _policy_ — where the base
+URL comes from, how a failed response becomes something your components can
+render, which requests are safe to retry, or how a loading indicator knows
+anything is in flight.
 
-## Getting Started
+Most Angular apps end up re-solving all four in an ad-hoc `ApiService` that grows
+one special case at a time. **ngx-api-client is that service, extracted and made
+configurable.**
 
-Get started by **creating a new site**.
+```ts
+// This is the whole of a typical data service.
+@Injectable({ providedIn: 'root' })
+export class OrderService {
+  private readonly api = inject(ApiService);
 
-Or **try Docusaurus immediately** with **[docusaurus.new](https://docusaurus.new)**.
-
-### What you'll need
-
-- [Node.js](https://nodejs.org/en/download/) version 20.0 or above:
-  - When installing Node.js, you are recommended to check all checkboxes related to dependencies.
-
-## Generate a new site
-
-Generate a new Docusaurus site using the **classic template**.
-
-The classic template will automatically be added to your project after you run the command:
-
-```bash
-npm init docusaurus@latest my-website classic
+  list(page: number, size: number): Observable<PaginatedResponse<Order>> {
+    return this.api.getPage<Order>('/orders', page, size);
+  }
+}
 ```
 
-You can type this command into Command Prompt, Powershell, Terminal, or any other integrated terminal of your code editor.
+`GET /orders` resolves to `https://api.example.com/api/v1/orders?page=0&size=20`,
+retries on a 503, normalises a failure into one `ApiError` shape, and toggles a
+loading signal on the way — all from configuration you wrote once.
 
-The command also installs all necessary dependencies you need to run Docusaurus.
+## The path of one request
 
-## Start your site
-
-Run the development server:
-
-```bash
-cd my-website
-npm run start
+```mermaid
+flowchart TD
+    A["Your service<br/>api.get('/orders')"] --> B["ApiService<br/>builds the URL, attaches<br/>per-request options to HttpContext"]
+    B --> C["ApiLoadingService<br/>counter incremented"]
+    C --> D["apiErrorInterceptor / apiSuccessInterceptor<br/>outermost"]
+    D --> E["retryInterceptor<br/>backoff on a transient status"]
+    E --> F["Backend"]
+    F -->|"2xx"| G["Message resolved →<br/>ApiSuccessHandler"]
+    F -->|"failure survives every retry"| H["Normalised to ApiError →<br/>ApiErrorHandler"]
+    H --> I["…and rethrown, so your<br/>subscriber still sees it"]
 ```
 
-The `cd` command changes the directory you're working with. In order to work with your newly created Docusaurus site, you'll need to navigate the terminal there.
+Everything above the handlers is the library's job. The two handlers at the
+bottom are the seam where your application decides what a failure or a success
+looks like.
 
-The `npm run start` command builds your website locally and serves it through a development server, ready for you to view at http://localhost:3000/.
+## What it does
 
-Open `docs/intro.md` (this page) and edit some lines: the site **reloads automatically** and displays your changes.
+| Concern              | What the library provides                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| **URL building**     | `baseUrl` + optional prefix segment + optional version segment + endpoint                         |
+| **Versioning**       | URL segment, query parameter, header or media type — or off; overridable per request              |
+| **Errors**           | Every failure normalised into one [`ApiError`](./guides/error-handling.mdx) shape (RFC 9457)      |
+| **Retry**            | Exponential backoff with jitter, `Retry-After` support, skips non-idempotent methods              |
+| **Per-request opts** | Carried to interceptors through `HttpContext`, not globals                                        |
+| **Presentation**     | Pluggable — the library renders nothing; you decide what an error or a success message looks like |
+| **Loading state**    | A signal that counts in-flight requests                                                           |
+
+## What it deliberately does not do
+
+- **It renders nothing.** No toasts, no dialogs, no redirects. `provideApi()`
+  registers presentation-free fallbacks and expects you to supply an adapter for
+  your own UI kit. See [Error handling](./guides/error-handling.mdx).
+- **It brings no UI dependency.** The peer dependencies are `@angular/core`,
+  `@angular/common` and `rxjs`. That is the entire list.
+- **It carries no i18n dependency.** Success messages are plain strings you pass
+  in already translated.
+- **It does not register interceptors for you.** Order matters, and only you know
+  what else is in your chain — so you wire them up in `withInterceptors()`
+  yourself.
+
+## Design principles
+
+**Configuration over convention, defaults over configuration.** Every option has
+a default that suits a conventional REST API. Every default can be replaced, and
+every global can be overridden for a single request.
+
+**Per-request options travel with the request.** Options are attached to the
+request's `HttpContext`, so an interceptor reads what _this_ call asked for
+rather than consulting mutable shared state — which keeps concurrent requests
+from interfering with each other.
+
+**One error shape.** A `problem+json` body, a plain-text proxy error page and a
+network drop that never reached the server all arrive at your code as the same
+`ApiError`. Components branch on `code`, never on prose.
+
+## Compatibility
+
+Developed and tested against **Angular 21**. The declared floor of `>=17`
+reflects the APIs used — signals and functional interceptors — rather than a
+range the CI matrix currently covers.
+
+## Next steps
+
+- [Installation](./getting-started/installation.mdx) — add the package and wire up the providers
+- [Quick start](./getting-started/quick-start.mdx) — a working service in five minutes
+- [Configuration](./guides/configuration.mdx) — every `provideApi()` option

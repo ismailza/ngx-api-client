@@ -1,0 +1,136 @@
+---
+id: provide-api
+title: provideApi()
+description: API reference for provideApi() and the ApiConfiguration interface.
+---
+
+# `provideApi()`
+
+```ts
+function provideApi(config: ApiConfiguration): EnvironmentProviders;
+```
+
+Configures ngx-api-client for an Angular application. Call it once, in
+`appConfig.providers`.
+
+```ts
+import { provideApi } from '@ismailza/ngx-api-client';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideApi({
+      baseUrl: 'https://api.example.com',
+      prefix: 'api',
+      version: 1,
+      versioning: 'url',
+      retry: { maxRetries: 3, initialDelay: 1000 },
+    }),
+  ],
+};
+```
+
+## What it registers
+
+- The configuration tokens: `API_BASE_URL`, `API_PREFIX`, `API_VERSION`,
+  `API_VERSIONING`, `API_RETRY_CONFIG`, `API_DEFAULT_SHOW_LOADER`,
+  `API_DEFAULT_SHOW_SUCCESS_MESSAGE`, `API_DEFAULT_SUCCESS_MESSAGES` — see
+  [Tokens](./tokens.mdx).
+- `ApiErrorHandler` → `DefaultApiErrorHandler` (forwards to Angular's
+  `ErrorHandler`).
+- `ApiSuccessHandler` → `DefaultApiSuccessHandler` (discards the message).
+
+Both fallbacks are deliberately presentation-free. Override either by providing
+your own class after the `provideApi()` call — see [Handlers](./handlers.mdx).
+
+It does **not** register the interceptors: order matters and only the
+application knows the full chain. Register them yourself with
+`withInterceptors()`.
+
+## `ApiConfiguration`
+
+```ts
+interface ApiConfiguration {
+  baseUrl: string;
+  prefix?: string | false;
+  version?: number | string;
+  versioning?: ApiVersioningStrategy | ApiVersioningConfig | false;
+  retry?: RetryConfig | false;
+  defaultShowLoader?: boolean;
+  defaultShowSuccessMessage?: boolean;
+  defaultSuccessMessages?: ApiDefaultSuccessMessages;
+}
+```
+
+### `baseUrl`
+
+**Required.** Root of the backend API, e.g. `'https://api.example.com'`. A
+trailing slash is trimmed.
+
+### `prefix`
+
+**Default `'api'`.** Static path segment inserted between the base URL and the
+endpoint, whatever the versioning strategy: `{baseUrl}/{prefix}/...`. Set to
+`''` or `false` when the API is served from the root. Surrounding slashes are
+normalised away. Overridable per request.
+
+### `version`
+
+**Default `1`.** The version value, carried according to `versioning`. Strings
+are allowed for date- or label-based schemes (`'2024-01-01'`, `'beta'`).
+Overridable per request.
+
+### `versioning`
+
+**Default `'url'`.** How the version is carried:
+
+- a strategy name — shorthand for `{ strategy }` with default naming
+- an `ApiVersioningConfig` — full control over segment prefix, parameter name,
+  header name or media type template
+- `false` — versioning disabled entirely; no version segment, parameter or
+  header is sent, and per-request `version` values are ignored
+
+See [Models](./models.mdx#apiversioningconfig) and the
+[Versioning guide](../guides/versioning.mdx).
+
+### `retry`
+
+**Default `{ maxRetries: 3, initialDelay: 1000, multiplier: 2, retryableStatuses: [408, 429, 500, 502, 503, 504] }`.**
+Merged over those defaults. `false` disables retry globally. Only consulted when
+`retryInterceptor` is registered.
+
+### `defaultShowLoader`
+
+**Default `true`.** Whether requests contribute to
+[`ApiLoadingService`](./api-loading-service.mdx) by default.
+
+### `defaultShowSuccessMessage`
+
+**Default `true`.** Whether mutating requests (POST/PUT/PATCH/DELETE) resolve a
+success message by default. `GET` never does unless a request asks.
+
+### `defaultSuccessMessages`
+
+Per-method messages, merged over the built-in defaults:
+
+```ts
+{ post: 'Created successfully.',
+  put: 'Updated successfully.',
+  patch: 'Updated successfully.',
+  delete: 'Deleted successfully.' }
+```
+
+## `undefined` handling
+
+Keys whose value is `undefined` are dropped before the defaults are applied, so
+a configuration assembled from optional sources falls back to the default rather
+than spreading `undefined` over it:
+
+```ts
+provideApi({
+  baseUrl: environment.apiUrl,
+  prefix: environment.apiPrefix, // undefined → 'api'
+});
+```
+
+This applies to nested objects too — `retry` and `defaultSuccessMessages` are
+merged key by key.

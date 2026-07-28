@@ -4,27 +4,64 @@
  * work well for content-centric websites.
  */
 
-/* You can override the default Infima variables here. */
 :root {
-  --ifm-color-primary: #2e8555;
-  --ifm-color-primary-dark: #29784c;
-  --ifm-color-primary-darker: #277148;
-  --ifm-color-primary-darkest: #205d3b;
-  --ifm-color-primary-light: #33925d;
-  --ifm-color-primary-lighter: #359962;
-  --ifm-color-primary-lightest: #3cad6e;
-  --ifm-code-font-size: 95%;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.1);
+  /* Angular-adjacent crimson. Checked for WCAG AA contrast on white. */
+  --ifm-color-primary: #cf0030;
+  --ifm-color-primary-dark: #ba002b;
+  --ifm-color-primary-darker: #af0029;
+  --ifm-color-primary-darkest: #900021;
+  --ifm-color-primary-light: #e40035;
+  --ifm-color-primary-lighter: #ef0038;
+  --ifm-color-primary-lightest: #ff0f47;
+
+  --ifm-code-font-size: 92%;
+  --ifm-heading-font-weight: 650;
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+
+  --nac-surface: #ffffff;
+  --nac-surface-muted: #f7f7f9;
+  --nac-border: rgba(0, 0, 0, 0.1);
+  --nac-hero-glow: rgba(207, 0, 48, 0.14);
 }
 
-/* For readability concerns, you should choose a lighter palette in dark mode. */
+/* For readability concerns, a lighter palette is used in dark mode. */
 [data-theme='dark'] {
-  --ifm-color-primary: #25c2a0;
-  --ifm-color-primary-dark: #21af90;
-  --ifm-color-primary-darker: #1fa588;
-  --ifm-color-primary-darkest: #1a8870;
-  --ifm-color-primary-light: #29d5b0;
-  --ifm-color-primary-lighter: #32d8b4;
-  --ifm-color-primary-lightest: #4fddbf;
-  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-color-primary: #ff6b81;
+  --ifm-color-primary-dark: #ff4a65;
+  --ifm-color-primary-darker: #ff3a58;
+  --ifm-color-primary-darkest: #f5002f;
+  --ifm-color-primary-light: #ff8c9d;
+  --ifm-color-primary-lighter: #ff9daa;
+  --ifm-color-primary-lightest: #ffd0d7;
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+
+  --nac-surface: #1f1f22;
+  --nac-surface-muted: #232326;
+  --nac-border: rgba(255, 255, 255, 0.12);
+  --nac-hero-glow: rgba(255, 107, 129, 0.16);
+}
+
+/* Long API tables should scroll rather than push the page sideways. */
+.markdown table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.markdown table code {
+  white-space: nowrap;
+}
+
+/* Keep focus rings visible on every interactive element, including the ones
+   Infima styles as buttons. */
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
+.navbar__logo {
+  display: flex;
+  align-items: center;
 }

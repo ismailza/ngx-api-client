@@ -43,17 +43,23 @@ export const appConfig: ApplicationConfig = {
       retry: { maxRetries: 3, initialDelay: 1000 },
     }),
     provideHttpClient(
-      withInterceptors([retryInterceptor, apiErrorInterceptor, apiSuccessInterceptor]),
+      withInterceptors([apiErrorInterceptor, apiSuccessInterceptor, retryInterceptor]),
     ),
   ],
 };
 ```
 
 Interceptors are registered by you, not by `provideApi()`, because **order
-matters** and only you know what else is in the chain. Put an auth/bearer-token
-interceptor first so retried requests get a fresh token; keep `retryInterceptor`
-before `apiErrorInterceptor` so the error handler only sees failures that
-survived every retry.
+matters** and only you know what else is in the chain. The first interceptor in
+the array is the outermost one:
+
+- Keep `apiErrorInterceptor` **before** `retryInterceptor`. It replaces the
+  `HttpErrorResponse` with a plain `ApiError`, and `retryInterceptor` only
+  retries `HttpErrorResponse`s — nest them the other way round and retry
+  silently never fires. Outermost, it also reports one failure per operation
+  rather than one per attempt.
+- Put an auth/bearer-token interceptor **last**, inside `retryInterceptor`, so
+  each retried attempt is signed with a fresh token.
 
 ## Usage
 

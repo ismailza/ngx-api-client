@@ -1,0 +1,146 @@
+---
+id: retry
+title: Retry
+description: Exponential backoff with jitter, Retry-After support, and which requests ngx-api-client considers safe to retry.
+---
+
+# Retry
+
+`retryInterceptor` retries transient failures with exponential backoff and
+jitter. It is opt-in at registration time: include it in `withInterceptors()`
+and it applies to every request that qualifies.
+
+```ts
+provideHttpClient(withInterceptors([apiErrorInterceptor, retryInterceptor]));
+```
+
+## What gets retried
+
+A request is retried only when **all** of these hold:
+
+1. Retry is not disabled globally (`retry: false` in `provideApi()`).
+2. The request did not opt out with `retry: false`.
+3. The method is idempotent — `POST` is skipped unless the request opts in.
+4. The response status is in `retryableStatuses`.
+5. The failure still is an `HttpErrorResponse` when it reaches the interceptor —
+   see [Ordering](#ordering).
+
+The default statuses are **408, 429, 500, 502, 503, 504**. A `4xx` outside that
+list is a client mistake: retrying it just repeats the mistake.
+
+:::note Network failures are not retried by default
+A status `0` failure does not appear in `retryableStatuses`. Add it explicitly
+if your app should retry dropped connections:
+`retryableStatuses: [0, 408, 429, 500, 502, 503, 504]`.
+:::
+
+## Backoff
+
+| Behaviour     | Detail                                                              |
+| ------------- | ------------------------------------------------------------------- |
+| Delay         | `initialDelay * multiplier^(attempt-1)`                             |
+| Jitter        | Plus a random 0–30% of that delay, to avoid a thundering herd       |
+| `Retry-After` | Honoured when present — in seconds or as an HTTP date — and it wins |
+| Attempts      | `maxRetries` retries after the initial attempt                      |
+
+With the defaults (`initialDelay: 1000`, `multiplier: 2`), the delays before
+attempts 2, 3 and 4 are roughly 1s, 2s and 4s, each nudged upward by jitter.
+
+## Configuration
+
+```ts
+provideApi({
+  baseUrl: 'https://api.example.com',
+  retry: {
+    maxRetries: 3,
+    initialDelay: 1000,
+    multiplier: 2,
+    retryableStatuses: [408, 429, 500, 502, 503, 504],
+  },
+});
+```
+
+| Option              | Default                          | Description                             |
+| ------------------- | -------------------------------- | --------------------------------------- |
+| `maxRetries`        | `3`                              | Attempts after the first one            |
+| `initialDelay`      | `1000`                           | Milliseconds before the first retry     |
+| `multiplier`        | `2`                              | Applied to the delay after each attempt |
+| `retryableStatuses` | `[408, 429, 500, 502, 503, 504]` | Statuses that trigger a retry           |
+
+Disable it everywhere with `retry: false`.
+
+## Per-request control
+
+```ts
+// Never retry this one
+this.api.get<Report>('/reports/heavy', { retry: false });
+
+// Opt a POST in — safe because the endpoint is idempotent by design
+this.api.post<Order>('/orders', draft, { retry: true });
+
+// Be more patient for one slow endpoint
+this.api.get<Export>('/exports/full', {
+  retry: { maxRetries: 5, initialDelay: 2000 },
+});
+```
+
+A per-request `RetryConfig` object is merged over the **built-in defaults**, not
+over your global configuration — so spell out every field you care about.
+
+## Why `POST` is excluded
+
+`POST` is not idempotent: a request that timed out may well have been processed,
+and retrying it can create a second record. The interceptor skips it unless the
+call opts in with `retry: true` or a `RetryConfig`. Use that opt-in when the
+endpoint is genuinely safe to repeat — for example when it is guarded by an
+idempotency key:
+
+```ts
+this.api.post<Payment>('/payments', body, {
+  retry: true,
+  headers: { 'Idempotency-Key': idempotencyKey },
+});
+```
+
+`PUT`, `PATCH` and `DELETE` are treated as idempotent and retried normally.
+
+## Ordering
+
+The first interceptor in the array is the outermost one. `retryInterceptor`
+therefore belongs **after** `apiErrorInterceptor` and **before** any auth
+interceptor:
+
+```ts
+withInterceptors([
+  apiErrorInterceptor, // outermost — sees the failure that survived every retry
+  apiSuccessInterceptor,
+  retryInterceptor,
+  bearerTokenInterceptor, // innermost — re-signs each attempt
+]);
+```
+
+:::danger Getting this backwards disables retry
+`retryInterceptor` only retries an `HttpErrorResponse`. `apiErrorInterceptor`
+replaces that with a plain `ApiError` object, so if it runs **inside** the retry
+interceptor there is nothing left to match — every request gets exactly one
+attempt and no retry ever fires. The failure is silent: requests still work,
+they just stop being resilient.
+
+```ts
+// ❌ retry never happens — apiErrorInterceptor is nested inside it
+withInterceptors([retryInterceptor, apiErrorInterceptor]);
+
+// ✅ retry works, and the handler fires once per failed operation
+withInterceptors([apiErrorInterceptor, retryInterceptor]);
+```
+
+:::
+
+Putting the auth interceptor innermost means the retried attempts re-run it, so
+each one is signed with a fresh token rather than replaying an expired one.
+
+## Interaction with the loading indicator
+
+The loading counter is incremented once per `ApiService` call, not once per HTTP
+attempt, so a request that retries three times keeps the indicator up for the
+whole operation instead of flickering between attempts.

@@ -1,0 +1,58 @@
+---
+id: api-loading-service
+title: ApiLoadingService
+description: API reference for ApiLoadingService, the signal-based in-flight request counter.
+---
+
+# `ApiLoadingService`
+
+```ts
+@Injectable({ providedIn: 'root' })
+class ApiLoadingService {
+  readonly loading: Signal<boolean>;
+}
+```
+
+Tracks the number of in-flight API requests and exposes a reactive signal.
+
+## `loading`
+
+```ts
+readonly loading: Signal<boolean>;
+```
+
+`true` while at least one tracked request is outstanding. It counts rather than
+flags, so two concurrent requests don't switch the indicator off when the first
+one finishes.
+
+```ts
+@Component({
+  template: `@if (loading.loading()) {
+    <my-progress-bar />
+  }`,
+})
+export class AppShell {
+  protected readonly loading = inject(ApiLoadingService);
+}
+```
+
+## Behaviour
+
+- The counter is incremented on **subscribe** and released on completion, error
+  or unsubscribe — a component destroyed mid-request never strands it.
+- It moves **once per `ApiService` call**, not once per HTTP attempt, so a
+  retried request holds the indicator for the whole operation.
+- An observable you never subscribe to never touches it.
+
+`start()` and `stop()` are internal to `ApiService` and should not be called by
+application code.
+
+## Excluding requests
+
+```ts
+this.api.get<Notification[]>('/notifications', { showLoader: false });
+```
+
+Or invert the default with `defaultShowLoader: false` in `provideApi()` and opt
+individual calls in with `showLoader: true`. See
+[Loading state](../guides/loading-state.mdx).

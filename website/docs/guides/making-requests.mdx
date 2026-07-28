@@ -1,0 +1,174 @@
+---
+id: making-requests
+title: Making requests
+description: ApiService methods, query parameters, headers, pagination, and the per-request options that override global configuration.
+---
+
+# Making requests
+
+`ApiService` is the single entry point. It is `providedIn: 'root'`, so inject it
+wherever you need it — usually in a feature service that describes one resource.
+
+```ts
+@Injectable({ providedIn: 'root' })
+export class OrderService {
+  private readonly api = inject(ApiService);
+
+  get(id: string): Observable<Order> {
+    return this.api.get<Order>(`/orders/${id}`);
+  }
+}
+```
+
+## Methods
+
+| Method                                       | Returns                            |
+| -------------------------------------------- | ---------------------------------- |
+| `get<T>(endpoint, options?)`                 | `Observable<T>`                    |
+| `post<T>(endpoint, body, options?)`          | `Observable<T>`                    |
+| `put<T>(endpoint, body, options?)`           | `Observable<T>`                    |
+| `patch<T>(endpoint, body, options?)`         | `Observable<T>`                    |
+| `delete<T>(endpoint, options?)`              | `Observable<T>`                    |
+| `getPage<T>(endpoint, page, size, options?)` | `Observable<PaginatedResponse<T>>` |
+
+Every method returns the **response body** typed as `T`, not an `HttpResponse`.
+The endpoint may be written with or without a leading slash.
+
+Requests are built lazily inside a `defer()`, so nothing is sent — and no
+loading counter moves — until you subscribe.
+
+## Query parameters
+
+Pass `params` as a plain object or an `HttpParams` instance. Array values are
+appended as repeated keys.
+
+```ts
+this.api.get<Order[]>('/orders', {
+  params: { status: 'OPEN', tag: ['urgent', 'vip'] },
+});
+// → /api/v1/orders?status=OPEN&tag=urgent&tag=vip
+```
+
+Numbers and booleans are stringified for you.
+
+## Headers
+
+Same idea — a plain object or an `HttpHeaders` instance:
+
+```ts
+this.api.post<Import>('/imports', body, {
+  headers: { 'Idempotency-Key': crypto.randomUUID() },
+});
+```
+
+A header you set explicitly is never overwritten by the versioning strategy.
+
+## Pagination
+
+`getPage()` appends `page` and `size` and types the result as
+`PaginatedResponse<T>`:
+
+```ts
+this.api.getPage<Order>('/orders', 0, 20);
+// → /api/v1/orders?page=0&size=20
+```
+
+```ts
+interface PaginatedResponse<T> {
+  content: T[];
+  page: {
+    number: number;
+    size: number;
+    totalElements: number;
+    totalPages: number;
+  };
+}
+```
+
+Extra `params` are merged with the pagination pair rather than replaced:
+
+```ts
+this.api.getPage<Order>('/orders', 2, 50, { params: { status: 'OPEN' } });
+// → /api/v1/orders?status=OPEN&page=2&size=50
+```
+
+:::note Response shape
+`PaginatedResponse<T>` mirrors the Spring Data REST style envelope
+(`content` plus a `page` object). If your backend paginates differently, use
+`get<T>()` with your own interface and pass `page`/`size` through `params`.
+:::
+
+## Per-request options
+
+Every method takes an optional `ApiRequestOptions` as its last argument. These
+override the global configuration for one call only, and travel to the
+interceptors through the request's `HttpContext` — so they stay scoped to that
+request instead of mutating shared state.
+
+| Option             | Type                               | Effect                                                           |
+| ------------------ | ---------------------------------- | ---------------------------------------------------------------- |
+| `version`          | `number \| string \| false`        | Override the version, or send this call unversioned              |
+| `prefix`           | `string \| false`                  | Override the path prefix, or drop it                             |
+| `retry`            | `boolean \| RetryConfig`           | Disable, force, or reconfigure retry for this call               |
+| `showLoader`       | `boolean`                          | Whether this call moves the loading indicator                    |
+| `skipErrorHandler` | `boolean`                          | Bypass the global `ApiErrorHandler`; the error still reaches you |
+| `successMessage`   | `boolean \| string`                | Custom message, force one on, or suppress it                     |
+| `params`           | `HttpParams \| Record<string, …>`  | Query parameters                                                 |
+| `headers`          | `HttpHeaders \| Record<string, …>` | Request headers                                                  |
+| `context`          | `HttpContext`                      | Your own context tokens, for your own interceptors               |
+
+### Pin a call to an older version
+
+```ts
+this.api.get<LegacyOrder>('/orders', { version: 1 });
+```
+
+### Call an endpoint outside the API surface
+
+```ts
+this.api.get<Health>('/health', { prefix: false, version: false });
+// → https://api.example.com/health
+```
+
+### Fire and forget
+
+```ts
+this.api.post('/analytics/event', payload, {
+  retry: false,
+  skipErrorHandler: true,
+  showLoader: false,
+});
+```
+
+`skipErrorHandler` only stops the _global_ handler from running. The `ApiError`
+is still thrown, so a subscriber can react to it.
+
+### Handle one error locally
+
+```ts
+this.api.post<Order>('/orders', draft, { skipErrorHandler: true }).subscribe({
+  error: (err: ApiError) => {
+    if (err.code === 'VALIDATION_ERROR') {
+      this.applyFieldErrors(err.errors ?? []);
+    }
+  },
+});
+```
+
+### Control the success message
+
+```ts
+this.api.put(`/orders/${id}`, order, { successMessage: 'Order updated' });
+this.api.delete(`/orders/${id}`, { successMessage: false });
+```
+
+## Passing your own context
+
+If you have your own interceptors reading `HttpContextToken`s, pass a context
+and the library will add its own tokens to it rather than replacing it:
+
+```ts
+const context = new HttpContext().set(MY_FEATURE_FLAG, true);
+
+this.api.get<Order>('/orders/1', { context, retry: false });
+```

@@ -1,0 +1,198 @@
+---
+id: testing
+title: Testing
+description: Test services built on ApiService with HttpTestingController, including URL assertions, error normalisation and retry.
+---
+
+# Testing
+
+Services built on `ApiService` are tested exactly like services built on
+`HttpClient` — with `provideHttpClientTesting()` and `HttpTestingController`.
+The one addition is `provideApi()`, so URLs are built the way they are in the
+application.
+
+## Setting up TestBed
+
+```ts title="order.service.spec.ts"
+import { provideHttpClient } from '@angular/common/http';
+import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
+import { TestBed } from '@angular/core/testing';
+import { provideApi } from '@ismailza/ngx-api-client';
+import { OrderService } from './order.service';
+
+describe('OrderService', () => {
+  let service: OrderService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideApi({ baseUrl: 'https://api.test' }),
+        provideHttpClient(),
+        provideHttpClientTesting(),
+      ],
+    });
+
+    service = TestBed.inject(OrderService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => httpMock.verify());
+});
+```
+
+:::tip Leave the interceptors out unless you're testing them
+The setup above registers no interceptors, which keeps a unit test focused on
+the service. Add them with `withInterceptors([...])` only when the behaviour
+under test is retry, error normalisation or success messages.
+:::
+
+## Asserting the URL
+
+The URL is part of the contract, so assert the whole thing — prefix, version
+and query included:
+
+```ts
+it('requests the paginated orders endpoint', () => {
+  service.list(0, 20).subscribe();
+
+  const req = httpMock.expectOne('https://api.test/api/v1/orders?page=0&size=20');
+  expect(req.request.method).toBe('GET');
+
+  req.flush({ content: [], page: { number: 0, size: 20, totalElements: 0, totalPages: 0 } });
+});
+```
+
+For header- or media-type versioning, assert the header instead:
+
+```ts
+expect(req.request.headers.get('X-API-Version')).toBe('1');
+```
+
+## Testing error normalisation
+
+Register `apiErrorInterceptor` and flush a `problem+json` body:
+
+```ts
+TestBed.configureTestingModule({
+  providers: [
+    provideApi({ baseUrl: 'https://api.test' }),
+    provideHttpClient(withInterceptors([apiErrorInterceptor])),
+    provideHttpClientTesting(),
+  ],
+});
+```
+
+```ts
+it('normalises a validation failure', async () => {
+  const thrown = new Promise<ApiError>((resolve) => {
+    service.create(draft).subscribe({ error: resolve });
+  });
+
+  httpMock.expectOne('https://api.test/api/v1/orders').flush(
+    {
+      type: 'about:blank',
+      title: 'Bad Request',
+      status: 400,
+      detail: 'Reference must not be blank.',
+      code: 'VALIDATION_ERROR',
+      errors: [{ field: 'reference', message: 'must not be blank' }],
+    },
+    { status: 400, statusText: 'Bad Request' },
+  );
+
+  const error = await thrown;
+  expect(error.code).toBe('VALIDATION_ERROR');
+  expect(error.errors).toHaveLength(1);
+});
+```
+
+A network failure is produced with `req.error(new ProgressEvent('error'))`, and
+normalises to `status: 0` with `code: 'NETWORK_ERROR'`.
+
+## Testing your handlers
+
+`ApiErrorHandler` is an abstract class token, so a recording double slots
+straight in:
+
+```ts
+@Injectable()
+class RecordingErrorHandler extends ApiErrorHandler {
+  readonly handled: ApiError[] = [];
+
+  override handle(error: ApiError): void {
+    this.handled.push(error);
+  }
+}
+```
+
+```ts
+providers: [
+  // ...
+  { provide: ApiErrorHandler, useClass: RecordingErrorHandler },
+];
+```
+
+Then assert that a failure reached it — and that `skipErrorHandler: true`
+doesn't:
+
+```ts
+const handler = TestBed.inject(ApiErrorHandler) as RecordingErrorHandler;
+expect(handler.handled).toHaveLength(1);
+```
+
+## Testing retry
+
+Retry uses real timers for its backoff, so drive it with `fakeAsync` and `tick`:
+
+```ts
+it('retries a 503 and succeeds on the second attempt', fakeAsync(() => {
+  const result = vi.fn();
+  service.get('1').subscribe(result);
+
+  httpMock.expectOne(URL).flush(null, { status: 503, statusText: 'Unavailable' });
+
+  tick(2000); // initial delay plus jitter headroom
+
+  httpMock.expectOne(URL).flush({ id: '1' });
+
+  expect(result).toHaveBeenCalled();
+}));
+```
+
+Jitter adds up to 30% to each delay, so `tick()` past the maximum rather than
+the nominal value. When the test isn't about retry, either leave
+`retryInterceptor` out of the TestBed or configure `provideApi({ retry: false })`.
+
+## Testing the loading signal
+
+```ts
+it('clears the loading state when the request fails', () => {
+  const loading = TestBed.inject(ApiLoadingService);
+
+  service.get('1').subscribe({ error: () => undefined });
+  expect(loading.loading()).toBe(true);
+
+  httpMock.expectOne(URL).flush(null, { status: 500, statusText: 'Error' });
+  expect(loading.loading()).toBe(false);
+});
+```
+
+## Faking `ApiService` in component tests
+
+A component test rarely wants HTTP at all. Provide a stub instead:
+
+```ts
+TestBed.configureTestingModule({
+  imports: [OrderListComponent],
+  providers: [
+    {
+      provide: OrderService,
+      useValue: { list: () => of({ content: [order], page: pageMeta }) },
+    },
+  ],
+});
+```
+
+Keep `provideApi()` out of component tests entirely — if a component reaches
+`ApiService` directly, that's usually a sign the call belongs in a service.

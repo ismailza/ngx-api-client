@@ -1,11 +1,30 @@
-# ngx-api-client
+<p align="center">
+  <a href="https://ismailza.github.io/ngx-api-client/">
+    <img src="https://ismailza.github.io/ngx-api-client/img/logo.svg" alt="" width="88" height="88">
+  </a>
+</p>
 
-[![npm](https://img.shields.io/npm/v/@ismailza/ngx-api-client.svg)](https://www.npmjs.com/package/@ismailza/ngx-api-client)
-[![CI](https://github.com/ismailza/ngx-api-client/actions/workflows/ci.yml/badge.svg)](https://github.com/ismailza/ngx-api-client/actions/workflows/ci.yml)
-[![Release](https://github.com/ismailza/ngx-api-client/actions/workflows/release.yml/badge.svg)](https://github.com/ismailza/ngx-api-client/actions/workflows/release.yml)
-[![license](https://img.shields.io/npm/l/@ismailza/ngx-api-client.svg)](./LICENSE)
+<h1 align="center">ngx-api-client</h1>
 
-A typed, interceptor-driven HTTP layer for Angular.
+<p align="center">
+  A typed, interceptor-driven HTTP layer for Angular.
+</p>
+
+<p align="center">
+  <a href="https://ismailza.github.io/ngx-api-client/"><strong>Documentation</strong></a> ·
+  <a href="https://www.npmjs.com/package/@ismailza/ngx-api-client"><strong>npm</strong></a> ·
+  <a href="https://ismailza.github.io/ngx-api-client/docs/getting-started/quick-start"><strong>Quick start</strong></a> ·
+  <a href="https://ismailza.github.io/ngx-api-client/docs/api/provide-api"><strong>API reference</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@ismailza/ngx-api-client"><img src="https://img.shields.io/npm/v/@ismailza/ngx-api-client.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@ismailza/ngx-api-client"><img src="https://img.shields.io/npm/dm/@ismailza/ngx-api-client.svg" alt="npm downloads"></a>
+  <a href="https://ismailza.github.io/ngx-api-client/"><img src="https://img.shields.io/badge/docs-online-brightgreen.svg" alt="Documentation"></a>
+  <a href="https://github.com/ismailza/ngx-api-client/actions/workflows/ci.yml"><img src="https://github.com/ismailza/ngx-api-client/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/ismailza/ngx-api-client/actions/workflows/release.yml"><img src="https://github.com/ismailza/ngx-api-client/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/npm/l/@ismailza/ngx-api-client.svg" alt="License"></a>
+</p>
 
 `HttpClient` gives you a request. It doesn't give you a _policy_ — where the base
 URL comes from, how a failed response becomes something your components can

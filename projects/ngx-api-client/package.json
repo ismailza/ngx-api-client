@@ -1,6 +1,6 @@
 {
   "name": "@ismailza/ngx-api-client",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A typed, interceptor-driven HTTP layer for Angular: versioned URLs, RFC 9457 problem+json error normalisation, retry with backoff, and pluggable error/success handlers.",
   "keywords": [
     "angular",

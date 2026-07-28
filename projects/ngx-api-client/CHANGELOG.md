@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/ismailza/ngx-api-client/compare/v0.2.0...v0.2.1) (2026-07-28)
+
+
+### Bug Fixes
+
+* correct the documented interceptor order in the package README ([681dd37](https://github.com/ismailza/ngx-api-client/commit/681dd377a2092f269a5a0309f53ac5e7e03605c3))
+
 ## [0.2.0](https://github.com/ismailza/ngx-api-client/compare/v0.1.0...v0.2.0) (2026-07-25)
 
 

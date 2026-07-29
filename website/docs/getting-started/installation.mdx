@@ -17,7 +17,7 @@ import TabItem from '@theme/TabItem';
 | RxJS        | `^7.4.0`                                                  |
 | Peer deps   | `@angular/core`, `@angular/common`, `rxjs` — nothing else |
 
-:::info Every version in that range is tested
+:::info[Every version in that range is tested]
 Compatibility is verified on each push, against the packed tarball rather than
 the source. For each Angular major, CI installs the package into a throwaway
 consumer application and runs three checks:
@@ -115,13 +115,13 @@ withInterceptors([
   each retried attempt is re-signed with a fresh token instead of replaying an
   expired one.
 
-:::danger A common mistake
+:::danger[A common mistake]
 `withInterceptors([retryInterceptor, apiErrorInterceptor])` looks like the
 natural reading order, but it disables retry entirely. Errors reach
 `retryInterceptor` already normalised, and it has nothing left to match on.
 :::
 
-:::tip Register only what you use
+:::tip[Register only what you use]
 The three interceptors are independent. If you don't want automatic retry,
 leave `retryInterceptor` out — the rest keeps working. `ApiService` itself works
 with no interceptors at all; you just lose error normalisation, retry and

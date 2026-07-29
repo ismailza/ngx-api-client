@@ -24,7 +24,7 @@ interface ApiError {
 }
 ```
 
-:::tip Branch on `code`, never on `detail`
+:::tip[Branch on `code`, never on `detail`]
 `detail` is human-readable prose, frequently localised server-side from
 `Accept-Language`. `code` is the stable contract.
 :::
@@ -145,7 +145,7 @@ providers: [
 ];
 ```
 
-:::warning The default handler logs the whole error
+:::warning[The default handler logs the whole error]
 `DefaultApiErrorHandler` hands the entire `ApiError` to Angular's `ErrorHandler`,
 which logs it. If your API puts sensitive data in `detail` or `instance`,
 register your own handler rather than relying on the fallback.

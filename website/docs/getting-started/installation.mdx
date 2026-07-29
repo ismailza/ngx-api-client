@@ -13,9 +13,23 @@ import TabItem from '@theme/TabItem';
 
 | Requirement | Version                                                   |
 | ----------- | --------------------------------------------------------- |
-| Angular     | `>=17` (developed and tested against 21)                  |
+| Angular     | 17 – 22 (`>=17.0.0 <23.0.0`)                              |
 | RxJS        | `^7.4.0`                                                  |
 | Peer deps   | `@angular/core`, `@angular/common`, `rxjs` — nothing else |
+
+:::info Every version in that range is tested
+Compatibility is verified on each push, against the packed tarball rather than
+the source. For each Angular major, CI installs the package into a throwaway
+consumer application and runs three checks:
+
+- a **type-check** against that version's Angular types;
+- a production **`ng build`**, which is what exercises the Angular linker over
+  the partial declarations the package ships;
+- a **runtime test** of the injector and the `exports` map.
+
+Each combination runs on both Node 22 and 24. The upper bound is deliberate — a
+new Angular major is added only once it has been validated.
+:::
 
 ## Install
 

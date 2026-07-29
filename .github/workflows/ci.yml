@@ -8,6 +8,7 @@ on:
 
 jobs:
   build:
+    name: Lint, test & build
     runs-on: ubuntu-latest
 
     steps:
@@ -15,7 +16,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -28,3 +29,93 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # Catches an omission that would otherwise only surface after publishing.
+      - name: Verify package contents
+        run: npm run verify:package
+
+      # The compatibility matrix consumes exactly what would be published,
+      # so pack once here instead of rebuilding per Angular version.
+      - name: Pack
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP" --silent
+          mv "$RUNNER_TEMP"/*.tgz "$GITHUB_WORKSPACE/package.tgz"
+        working-directory: dist/ngx-api-client
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-tarball
+          path: package.tgz
+          retention-days: 1
+
+  versions:
+    # Derived from the library's `@angular/core` peer range so the matrix cannot
+    # drift from what the package claims to support.
+    name: Resolve supported Angular versions
+    runs-on: ubuntu-latest
+    outputs:
+      angular: ${{ steps.derive.outputs.angular }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - id: derive
+        run: echo "angular=$(node scripts/check-angular-compat.mjs --list)" >> "$GITHUB_OUTPUT"
+
+  compat:
+    # The workspace builds on the newest Angular, but the package supports a
+    # range of majors. Install the packed tarball into a throwaway consumer
+    # project per combination and type-check, bundle and run it there, so the
+    # supported range is verified rather than asserted.
+    name: Angular ${{ matrix.angular }} / Node ${{ matrix.node }}
+    needs: [build, versions]
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        angular: ${{ fromJSON(needs.versions.outputs.angular) }}
+        node: [22, 24]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: package-tarball
+
+      - name: Verify against Angular ${{ matrix.angular }}
+        run: |
+          npm run compat -- ${{ matrix.angular }} \
+            --tarball package.tgz \
+            --report "compat-${{ matrix.angular }}-node${{ matrix.node }}.json"
+
+      # `always()`: a failed combination still belongs in the summary table.
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-result-${{ matrix.angular }}-node${{ matrix.node }}
+          path: compat-*.json
+          retention-days: 1
+          if-no-files-found: ignore
+
+  report:
+    name: Compatibility report
+    needs: compat
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: compat-result-*
+          path: compat-results
+
+      - name: Publish compatibility table
+        run: node scripts/compat-report.mjs compat-results >> "$GITHUB_STEP_SUMMARY"

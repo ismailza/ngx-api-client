@@ -6,6 +6,9 @@
 /out-tsc
 /bazel-out
 
+# Tarball packed for the Angular compatibility matrix
+/package.tgz
+
 # Node
 /node_modules
 npm-debug.log

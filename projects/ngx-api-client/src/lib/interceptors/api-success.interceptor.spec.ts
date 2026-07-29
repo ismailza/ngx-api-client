@@ -1,4 +1,10 @@
-import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpContext,
+  provideHttpClient,
+  withInterceptors,
+  withXhr,
+} from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Injectable } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -39,7 +45,7 @@ describe('apiSuccessInterceptor', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(withInterceptors([apiSuccessInterceptor])),
+        provideHttpClient(withXhr(), withInterceptors([apiSuccessInterceptor])),
         provideHttpClientTesting(),
         { provide: ApiSuccessHandler, useClass: RecordingSuccessHandler },
         { provide: API_DEFAULT_SUCCESS_MESSAGES, useValue: MESSAGES },

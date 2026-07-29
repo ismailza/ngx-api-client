@@ -1,4 +1,10 @@
-import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpContext,
+  provideHttpClient,
+  withInterceptors,
+  withXhr,
+} from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { Injectable } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
@@ -27,7 +33,7 @@ describe('apiErrorInterceptor', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(withInterceptors([apiErrorInterceptor])),
+        provideHttpClient(withXhr(), withInterceptors([apiErrorInterceptor])),
         provideHttpClientTesting(),
         { provide: ApiErrorHandler, useClass: RecordingErrorHandler },
       ],

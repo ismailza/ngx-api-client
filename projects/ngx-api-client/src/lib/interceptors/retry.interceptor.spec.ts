@@ -1,4 +1,10 @@
-import { HttpClient, HttpContext, provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpContext,
+  provideHttpClient,
+  withInterceptors,
+  withXhr,
+} from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { API_REQUEST_OPTIONS, API_RETRY_CONFIG, SKIP_RETRY } from '../api.tokens';
@@ -24,7 +30,7 @@ describe('retryInterceptor', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(withInterceptors([retryInterceptor])),
+        provideHttpClient(withXhr(), withInterceptors([retryInterceptor])),
         provideHttpClientTesting(),
         { provide: API_RETRY_CONFIG, useValue: retryConfig },
       ],

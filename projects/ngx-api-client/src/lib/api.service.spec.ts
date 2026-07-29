@@ -1,4 +1,4 @@
-import { HttpParams, provideHttpClient } from '@angular/common/http';
+import { HttpParams, provideHttpClient, withXhr } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { ApiLoadingService } from './api-loading.service';
@@ -30,7 +30,7 @@ describe('ApiService', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
-        provideHttpClient(),
+        provideHttpClient(withXhr()),
         provideHttpClientTesting(),
         { provide: API_BASE_URL, useValue: BASE_URL },
         ...(providers as never[]),

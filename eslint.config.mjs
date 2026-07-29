@@ -5,7 +5,17 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'coverage/**', '.angular/**', 'node_modules/**', 'website/**'],
+    // `compat/` is a consumer fixture compiled against other Angular majors by
+    // scripts/check-angular-compat.mjs. It resolves `@ismailza/ngx-api-client`
+    // from an installed tarball, so it is outside this workspace's type graph.
+    ignores: [
+      'dist/**',
+      'coverage/**',
+      '.angular/**',
+      'node_modules/**',
+      'website/**',
+      'compat/**',
+    ],
   },
   {
     files: ['**/*.ts'],

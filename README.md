@@ -281,9 +281,22 @@ own `ApiSuccessHandler`.
 
 ## Compatibility
 
-Developed and tested against **Angular 21**. The declared floor of `>=17` reflects
-the APIs used — signals and functional interceptors — rather than a range the CI
-matrix currently covers.
+| Requirement       | Supported                                                 |
+| ----------------- | --------------------------------------------------------- |
+| Angular           | 17 · 18 · 19 · 20 · 21 · 22                               |
+| RxJS              | `^7.4.0`                                                  |
+| Peer dependencies | `@angular/core`, `@angular/common`, `rxjs` — nothing else |
+
+Every Angular major above is verified on each push, against the packed tarball
+rather than the source. CI installs the package into a throwaway consumer
+application per version and runs three checks: a type-check against that
+version's Angular types, a production `ng build` — which is what exercises the
+Angular linker over the shipped partial declarations — and a runtime test of the
+injector and the `exports` map. Each combination runs on both Node 22 and 24.
+
+The peer range is bounded (`>=17.0.0 <23.0.0`) deliberately: a new Angular major
+is added only once it has been validated, so the supported range is a tested
+claim rather than an assumption.
 
 ## Contributing
 

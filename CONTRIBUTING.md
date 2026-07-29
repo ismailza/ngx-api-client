@@ -34,7 +34,8 @@ Small bug fixes, documentation improvements, and typo fixes can generally be sub
 
 Make sure you have the following installed:
 
-- Node.js (LTS recommended)
+- Node.js `^22.22.3`, `^24.15.0` or newer — the floor comes from the Angular CLI
+  the workspace builds with, and an older release will refuse to run `ng`
 - npm
 - Git
 
@@ -128,6 +129,37 @@ Run the linter:
 ```bash
 npm run lint
 ```
+
+### Compatibility Checks
+
+The package supports a range of Angular majors, so a change that compiles
+against the workspace's Angular can still break consumers on an older one. CI
+runs these on every push; run them locally when you touch the public API, the
+build setup or `peerDependencies`.
+
+Verify the packaged artifact contains everything it should:
+
+```bash
+npm run build
+npm run verify:package
+```
+
+Verify the package against every supported Angular major — this installs each
+one into a throwaway project, so expect it to take a few minutes:
+
+```bash
+npm run compat
+```
+
+To check a single version while iterating:
+
+```bash
+npm run compat -- 17
+```
+
+See [`compat/README.md`](compat/README.md) for what each check covers and how to
+extend the fixture. When you add a public export, reference it there — an export
+no fixture touches is an export the matrix does not cover.
 
 ## Commit Messages
 

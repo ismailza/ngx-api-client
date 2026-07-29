@@ -28,7 +28,9 @@ jobs:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
-  # Builds the tarball once so both registries receive identical bytes.
+  # Builds the package once so both registries receive identical contents. Each
+  # publish job packs its own tarball from this directory, so the two must stay
+  # on the same Node — a differing bundled npm changes the shasum.
   build:
     name: Build
     needs: release-please
@@ -39,7 +41,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -47,14 +49,13 @@ jobs:
       - name: Test
         run: npm test
 
+      # `postbuild` stages LICENSE and CHANGELOG.md, which ng-packagr does not
+      # copy, so this produces the same bytes CI validated.
       - name: Build
         run: npm run build
 
-      # ng-packagr copies README.md but not these.
-      - name: Include LICENSE and CHANGELOG in the package
-        run: |
-          cp LICENSE dist/ngx-api-client/LICENSE
-          cp projects/ngx-api-client/CHANGELOG.md dist/ngx-api-client/CHANGELOG.md
+      - name: Verify package contents
+        run: npm run verify:package
 
       - uses: actions/upload-artifact@v4
         with:
@@ -77,7 +78,7 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
 
       - run: npm publish ./package --provenance --access public
@@ -99,9 +100,9 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://npm.pkg.github.com
-          scope: "@ismailza"
+          scope: '@ismailza'
 
       - run: npm publish ./package
         env:

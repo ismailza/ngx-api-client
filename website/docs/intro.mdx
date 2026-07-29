@@ -92,9 +92,13 @@ network drop that never reached the server all arrive at your code as the same
 
 ## Compatibility
 
-Developed and tested against **Angular 21**. The declared floor of `>=17`
-reflects the APIs used — signals and functional interceptors — rather than a
-range the CI matrix currently covers.
+Supports **Angular 17 through 22**. Every one of those majors is verified on
+each push against the packed tarball — type-checked, built into a real consumer
+application, and run — on both Node 22 and 24. The upper bound is deliberate: a
+new major is added only once it has been validated.
+
+See [Installation](./getting-started/installation.mdx#requirements) for the full
+requirements.
 
 ## Next steps
 

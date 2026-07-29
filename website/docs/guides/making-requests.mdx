@@ -92,7 +92,7 @@ this.api.getPage<Order>('/orders', 2, 50, { params: { status: 'OPEN' } });
 // → /api/v1/orders?status=OPEN&page=2&size=50
 ```
 
-:::note Response shape
+:::note[Response shape]
 `PaginatedResponse<T>` mirrors the Spring Data REST style envelope
 (`content` plus a `page` object). If your backend paginates differently, use
 `get<T>()` with your own interface and pass `page`/`size` through `params`.

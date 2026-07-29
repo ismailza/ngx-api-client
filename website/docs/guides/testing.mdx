@@ -41,7 +41,7 @@ describe('OrderService', () => {
 });
 ```
 
-:::tip Leave the interceptors out unless you're testing them
+:::tip[Leave the interceptors out unless you're testing them]
 The setup above registers no interceptors, which keeps a unit test focused on
 the service. Add them with `withInterceptors([...])` only when the behaviour
 under test is retry, error normalisation or success messages.

@@ -28,7 +28,7 @@ A request is retried only when **all** of these hold:
 The default statuses are **408, 429, 500, 502, 503, 504**. A `4xx` outside that
 list is a client mistake: retrying it just repeats the mistake.
 
-:::note Network failures are not retried by default
+:::note[Network failures are not retried by default]
 A status `0` failure does not appear in `retryableStatuses`. Add it explicitly
 if your app should retry dropped connections:
 `retryableStatuses: [0, 408, 429, 500, 502, 503, 504]`.
@@ -119,7 +119,7 @@ withInterceptors([
 ]);
 ```
 
-:::danger Getting this backwards disables retry
+:::danger[Getting this backwards disables retry]
 `retryInterceptor` only retries an `HttpErrorResponse`. `apiErrorInterceptor`
 replaces that with a plain `ApiError` object, so if it runs **inside** the retry
 interceptor there is nothing left to match — every request gets exactly one

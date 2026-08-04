@@ -16,6 +16,8 @@ The single entry point for HTTP calls. Builds URLs from the configured
 `HttpContext` for interceptors, and tracks loading state.
 
 Every method returns an `Observable` of the **response body**, typed as `T`.
+Except for file download methods, they provide dedicated return types: `download()` returns a
+`Blob`, while `downloadResponse()` returns the complete `HttpResponse<Blob>`.
 Requests are created lazily — nothing is sent until you subscribe.
 
 ## `get`
@@ -61,6 +63,31 @@ delete<T>(endpoint: string, options?: ApiRequestOptions): Observable<T>
 
 ```ts
 this.api.delete<void>(`/orders/${id}`);
+```
+
+```ts
+download(endpoint: string, options?: ApiRequestOptions): Observable<Blob>
+```
+
+Downloads a binary file and returns the response body as a `Blob`.
+
+```ts
+this.api.download('/documents/001');
+```
+
+## `downloadResponse`
+
+```ts
+downloadResponse(
+  endpoint: string,
+  options?: ApiRequestOptions,
+): Observable<HttpResponse<Blob>>
+```
+
+Downloads a binary file and returns the complete HTTP response, including response headers and metadata.
+
+```ts
+this.api.downloadResponse('/documents/001');
 ```
 
 ## `getPage`

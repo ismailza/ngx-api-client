@@ -1,4 +1,4 @@
-import { HttpClient, HttpContext, HttpHeaders, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpContext, HttpHeaders, HttpParams, HttpResponse } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { defer, finalize, Observable } from 'rxjs';
 import { ApiLoadingService } from './api-loading.service';
@@ -99,6 +99,30 @@ export class ApiService {
   delete<T>(endpoint: string, options?: ApiRequestOptions): Observable<T> {
     return this.request<T>('DELETE', endpoint, null, options);
   }
+    
+  /**
+   * Downloads a binary file by performing a `GET` request to the specified API endpoint
+   * with optional request options.
+   *
+   * @param endpoint API endpoint (e.g. `'/resource/{id}'`).
+   * @param options Additional request options (query params, headers, etc.).
+   * @returns An `Observable` of the downloaded file as a `Blob`.
+   */
+  download(endpoint: string, options?: ApiRequestOptions): Observable<Blob> {
+    return this.request<Blob>('GET', endpoint, null, options, 'blob');
+  }
+
+  /**
+   * Downloads a binary file and returns the complete HTTP response, including
+   * response metadata such as headers and the filename from the `Content-Disposition` header.
+   *
+   * @param endpoint API endpoint (e.g. `'/resource/{id}'`).
+   * @param options Additional request options (query params, headers, etc.).
+   * @returns An `Observable` of the complete HTTP response containing the downloaded file as a `Blob`.
+   */
+  downloadResponse(endpoint: string, options?: ApiRequestOptions): Observable<HttpResponse<Blob>> {
+    return this.request<HttpResponse<Blob>>('GET', endpoint, null, options, 'blob', true);
+  }
 
   /**
    * Convenience method for paginated `GET` requests.
@@ -138,13 +162,16 @@ export class ApiService {
    * @param endpoint API endpoint (e.g. `'/resource'`).
    * @param body Request body (for POST, PUT, PATCH).
    * @param options Additional request options (query params, headers, flags for interceptors, etc.).
-   * @returns An `Observable` of the response body typed as `T`.
+   * @param observeResponse Whether to return the complete HTTP response, including headers and other metadata.
+   * @returns An `Observable` of the response typed as `T`.
    */
   private request<T>(
     method: string,
     endpoint: string,
     body: unknown,
     options?: ApiRequestOptions,
+    responseType: 'json' | 'blob' = 'json',
+    observeResponse = false,
   ): Observable<T> {
     const showLoader = options?.showLoader ?? this.defaultShowLoader;
 
@@ -157,12 +184,16 @@ export class ApiService {
         this.loadingService.start();
       }
 
-      return this.http.request<T>(method, url, {
+      const requestOptions = {
         body,
         params: this.buildParams(options, versioning),
         headers: this.buildHeaders(options, versioning),
         context,
-      });
+        responseType,
+        ...(observeResponse ? { observe: 'response' as const } : {}),
+      };
+
+      return this.http.request(method, url, requestOptions) as Observable<T>;
     }).pipe(
       finalize(() => {
         if (showLoader) {

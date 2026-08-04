@@ -460,6 +460,38 @@ describe('ApiService', () => {
       req.flush(emptyPage());
     });
   });
+  
+  describe('file downloads', () => {
+    it('issues a GET and returns the file as a Blob', () => {
+      const blob = new Blob(['file content'], { type: 'application/pdf' });
+
+      api.download('/documents/001').subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/v1/documents/001`);
+
+      expect(req.request.method).toBe('GET');
+      expect(req.request.responseType).toBe('blob');
+
+      req.flush(blob);
+    });
+
+    it('issues a GET and returns the full HTTP response for a file download', () => {
+      const blob = new Blob(['file content'], { type: 'application/pdf' });
+
+      api.downloadResponse('/documents/001').subscribe();
+
+      const req = httpMock.expectOne(`${BASE_URL}/api/v1/documents/001`);
+
+      expect(req.request.method).toBe('GET');
+      expect(req.request.responseType).toBe('blob');
+
+      req.flush(blob, {
+        headers: {
+          'Content-Disposition': 'attachment; filename="document.pdf"',
+        },
+      });
+    });
+  });
 
   describe('loading state', () => {
     it('does not start until the caller subscribes', () => {

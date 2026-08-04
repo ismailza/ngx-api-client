@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/ismailza/ngx-api-client/compare/v0.2.1...v0.3.0) (2026-08-04)
+
+
+### Features
+
+* Add file download support to ApiService ([089d70b](https://github.com/ismailza/ngx-api-client/commit/089d70bf9f783aeb7ddafe249f85cfd48a39bedf))
+* Add file download support to ApiService ([9543884](https://github.com/ismailza/ngx-api-client/commit/9543884e42f6bbbc006ca14347b44053f478244b))
+
 ## [0.2.1](https://github.com/ismailza/ngx-api-client/compare/v0.2.0...v0.2.1) (2026-07-28)
 
 

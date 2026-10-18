@@ -84,6 +84,13 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
 
+      # Each Node release bundles its own npm, and npm 10.9.9 (Node 22.23.3)
+      # crashes resolving Angular 21's peer set ("reading 'edgesOut'"). Use the
+      # npm the repository pins, so the matrix varies Angular and Node — not
+      # whichever npm happens to ship with them.
+      - name: Use the repository's npm
+        run: npm install -g "$(node -p "require('./package.json').packageManager")"
+
       - uses: actions/download-artifact@v4
         with:
           name: package-tarball

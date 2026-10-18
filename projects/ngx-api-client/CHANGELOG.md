@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/ismailza/ngx-api-client/compare/v0.3.0...v0.3.1) (2026-10-18)
+
+
+### Bug Fixes
+
+* **deps:** require tslib ^2.8.1 ([133ac7c](https://github.com/ismailza/ngx-api-client/commit/133ac7c51889e13d56901bc3ee8cd372d308d459))
+
 ## [0.3.0](https://github.com/ismailza/ngx-api-client/compare/v0.2.1...v0.3.0) (2026-08-04)
 
 

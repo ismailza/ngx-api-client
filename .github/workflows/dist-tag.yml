@@ -1,0 +1,74 @@
+name: Dist-tag
+
+# Moves npm dist-tags on npmjs through trusted publishing (OIDC), e.g. to
+# promote a version to `latest` or point `next` at a prerelease. The npm
+# trusted publisher for this workflow should allow npm dist-tag only.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Add (or move) the tag, or remove it
+        type: choice
+        options:
+          - add
+          - rm
+        default: add
+      tag:
+        description: Dist-tag name, e.g. latest, next, beta
+        type: string
+        required: true
+      version:
+        description: Version to tag (ignored for rm), e.g. 0.2.0
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dist-tag
+  cancel-in-progress: false
+
+jobs:
+  dist-tag:
+    name: ${{ inputs.action }} ${{ inputs.tag }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for trusted publishing
+    env:
+      PACKAGE: '@ismailza/ngx-api-client'
+      ACTION: ${{ inputs.action }}
+      TAG: ${{ inputs.tag }}
+      VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      # Dist-tag management over OIDC needs npm 11.21.0 or later.
+      - name: Update npm
+        run: npm install -g npm@^11.21.0
+
+      - name: Validate inputs
+        run: |
+          if [ "$ACTION" = add ] && [ -z "$VERSION" ]; then
+            echo "::error::version is required when adding a tag"
+            exit 1
+          fi
+          if [ "$ACTION" = rm ] && [ "$TAG" = latest ]; then
+            echo "::error::the latest tag cannot be removed, only moved"
+            exit 1
+          fi
+
+      - name: Update dist-tag
+        run: |
+          if [ "$ACTION" = add ]; then
+            npm dist-tag add "$PACKAGE@$VERSION" "$TAG"
+          else
+            npm dist-tag rm "$PACKAGE" "$TAG"
+          fi
+
+      - name: Current dist-tags
+        run: npm dist-tag ls "$PACKAGE" | tee -a "$GITHUB_STEP_SUMMARY"

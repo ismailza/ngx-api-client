@@ -30,7 +30,7 @@ jobs:
 
   # Builds the package once so both registries receive identical contents. Each
   # publish job packs its own tarball from this directory, so the two must stay
-  # on the same Node — a differing bundled npm changes the shasum.
+  # on the same Node and npm — a differing npm changes the shasum.
   build:
     name: Build
     needs: release-please
@@ -63,13 +63,18 @@ jobs:
           path: dist/ngx-api-client
           retention-days: 7
 
+  # Stages the release on npmjs through trusted publishing (OIDC): no token is
+  # stored in the repo. A staged version is not public until a maintainer
+  # approves it with 2FA (`npm stage approve` or on npmjs.com). The npm trusted
+  # publisher for this workflow should allow staged publish only — moving
+  # dist-tags afterwards is done by dist-tag.yml.
   publish-npm:
-    name: Publish to npmjs
+    name: Stage on npmjs
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write # required for npm provenance
+      id-token: write # required for trusted publishing and provenance
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -81,9 +86,22 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
 
-      - run: npm publish ./package --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Trusted publishing for `npm stage` needs a newer npm than Node bundles.
+      - name: Update npm
+        run: npm install -g npm@11.21.0
+
+      # The tag is fixed at staging time and applied on approval. Prereleases
+      # go to `next` so they never become `latest` by accident.
+      - name: Stage publish
+        working-directory: package
+        run: |
+          version=$(node -p "require('./package.json').version")
+          case "$version" in
+            *-*) tag=next ;;
+            *) tag=latest ;;
+          esac
+          echo "Staging $version with dist-tag '$tag'"
+          npm stage publish --tag "$tag" --provenance --access public
 
   publish-gpr:
     name: Publish to GitHub Packages
@@ -103,6 +121,10 @@ jobs:
           node-version: 24
           registry-url: https://npm.pkg.github.com
           scope: '@ismailza'
+
+      # Same npm as publish-npm so both registries get the same tarball.
+      - name: Update npm
+        run: npm install -g npm@11.21.0
 
       - run: npm publish ./package
         env:
